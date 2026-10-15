@@ -1,4 +1,5 @@
 import { parseFaecher, parseHalbjahre, type BereichConfig, type Halbjahr, type PathConfig } from "./config.ts";
+import { DEFAULT_TAG_ZUORDNUNG, type TagZuordnung } from "./stichworte.ts";
 
 export interface JournalConfig {
   root: string;
@@ -24,6 +25,8 @@ export interface SchulSettings {
   tasks: TaskConfig;
   /** Begriffe/Personen, die nicht automatisch verlinkt werden. */
   begriffeAusschluss: string[];
+  /** Inline-Tags: alt (klein) → neu; "" = entfällt. Nicht aufgeführte Tags werden zu stichwort/<slug>. */
+  tagZuordnung: TagZuordnung;
   /** Base mit der Ansicht „Verwaist“ (Notes ohne Links). */
   inboxBasePath: string;
   autoSort: boolean;
@@ -106,6 +109,7 @@ export const DEFAULT_SETTINGS: SchulSettings = {
   },
   tasks: { folder: "TaskNotes/Tasks", tag: "task", quellen: ["01-Schule/AufgabenFiles", "01-Schule/Hausaufgaben oder To - Do.md"] },
   begriffeAusschluss: [],
+  tagZuordnung: { ...DEFAULT_TAG_ZUORDNUNG },
   inboxBasePath: "Inbox.base",
   autoSort: true,
   autoCreateHubs: true,
@@ -150,6 +154,7 @@ export function mergeSettings(saved: Record<string, unknown> | null): SchulSetti
   if (saved.journal) s.journal = { ...s.journal, ...(saved.journal as object) };
   if (saved.tasks) s.tasks = { ...s.tasks, ...(saved.tasks as object) };
   if (Array.isArray(saved.begriffeAusschluss)) s.begriffeAusschluss = saved.begriffeAusschluss as string[];
+  if (saved.tagZuordnung && typeof saved.tagZuordnung === "object") s.tagZuordnung = saved.tagZuordnung as TagZuordnung;
   if (typeof saved.inboxBasePath === "string") s.inboxBasePath = saved.inboxBasePath;
   if (typeof saved.autoSort === "boolean") s.autoSort = saved.autoSort;
   if (typeof saved.autoCreateHubs === "boolean") s.autoCreateHubs = saved.autoCreateHubs;

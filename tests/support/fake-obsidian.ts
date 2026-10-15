@@ -97,6 +97,7 @@ export class FakeApp {
       return f;
     },
     read: async (f: TFile) => f.body,
+    cachedRead: async (f: TFile) => f.body,
     getMarkdownFiles: () => [...this.files.values()].filter((f): f is TFile => f instanceof TFile),
   };
 

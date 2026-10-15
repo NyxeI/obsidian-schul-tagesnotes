@@ -4,6 +4,7 @@ import { computeTarget, findFach, hubFolderPath, linkTarget, safeName } from "./
 import { deriveTags, sameList } from "./tags.ts";
 import { DEFAULT_HUB_TEMPLATE, renderTemplate } from "./templates.ts";
 import { bereichOf, type SchulSettings } from "./defaults.ts";
+import { syncUnterthemen } from "./stichworte-apply.ts";
 
 export type SortResult = "moved" | "updated" | "unchanged" | "skipped" | "conflict";
 
@@ -69,7 +70,10 @@ export class Sorter {
     const s = this.settings();
     const cfg = bereichOf(s, fm);
     if (!cfg) return "skipped";
-    if (fm.typ === "thema") return this.syncHub(file, fm, cfg);
+    if (fm.typ === "thema") {
+      const r = await this.syncHub(file, fm, cfg);
+      return (await syncUnterthemen(this.app, file, fm)) && r === "unchanged" ? "updated" : r;
+    }
     if (fm.typ !== "tagesnote") return "skipped";
 
     const target = computeTarget(fm, cfg);
@@ -89,6 +93,8 @@ export class Sorter {
         });
         result = "updated";
       }
+
+      if (await syncUnterthemen(this.app, file, fm)) result = "updated";
 
       if (s.autoCreateHubs) {
         for (const thema of target.themen) await this.ensureHub(cfg, target.fach, thema, file.path);

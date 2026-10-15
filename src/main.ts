@@ -5,6 +5,7 @@ import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type Kategor
 import { Journal } from "./journal-apply.ts";
 import { resultLine, syncTasks } from "./tasks-apply.ts";
 import { applyBegriffe, planBegriffe } from "./begriffe-apply.ts";
+import { runStichworte } from "./stichworte-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
 import { collectThemen } from "./themen.ts";
@@ -155,6 +156,27 @@ export default class SchulTagesnotesPlugin extends Plugin {
               void this.journal
                 .linkAllTasks(this.settings.tasks.quellen, false)
                 .then((x) => new Notice(`${x.files} Notes: ${resultLine(x)}`, 10000)),
+          ).open(),
+        ),
+    });
+
+    // ---------- Tags & Unterthemen ----------
+    this.addCommand({
+      id: "tags-vereinheitlichen",
+      name: "Tags vereinheitlichen & Unterthemen eintragen …",
+      callback: () =>
+        void runStichworte(this.app, this.settings, true).then((r) =>
+          new ConfirmModal(
+            this.app,
+            "Tags vereinheitlichen?",
+            `${r.notes} Notes ändern sich: ${r.inlineTags} Inline-Tags in ${r.textNotes} Notes werden umgeschrieben bzw. entfernt (Fach-Dubletten), ` +
+              `${r.tags.size} einheitliche Tags (stichwort/, person/, markierung/), Unterthemen in ${r.unterthemen} Hubs/Tagesnotes. ` +
+              "Journal, Aufgaben-Quellen und TaskNotes bleiben unverändert. Vorher ein Backup anlegen!",
+            () =>
+              void runStichworte(this.app, this.settings, false).then((x) => {
+                this.stichwortResult = x;
+                new Notice(`Tags: ${x.notes} Notes, ${x.inlineTags} Inline-Tags, ${x.errors.length} Fehler.`, 10000);
+              }),
           ).open(),
         ),
     });
@@ -332,6 +354,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
 
   journalResult: unknown = null;
   begriffeResult: unknown = null;
+  stichwortResult: unknown = null;
 
   async runJournalMigration(): Promise<void> {
     const notice = new Notice("Journal-Migration läuft …", 0);

@@ -78,6 +78,22 @@ export class SchulSettingTab extends PluginSettingTab {
           await save();
         });
       });
+    new Setting(containerEl)
+      .setName("Tag-Zuordnung")
+      .setDesc("Inline-Tags vereinheitlichen: alt | neu (alt klein geschrieben, ohne #; neu leer = Tag entfällt). Nicht aufgeführte Tags werden zu stichwort/<name>, Fach-Tags entfallen.")
+      .addTextArea((t) => {
+        t.inputEl.rows = 8;
+        t.inputEl.cols = 45;
+        t.setValue(Object.entries(s.tagZuordnung).map(([a, b]) => `${a} | ${b}`).join("\n")).onChange(async (v) => {
+          const map: Record<string, string> = {};
+          for (const line of v.split("\n")) {
+            const [a, b = ""] = line.split("|").map((x) => x.trim());
+            if (a) map[a.replace(/^#/, "").toLowerCase()] = b.replace(/^#/, "");
+          }
+          s.tagZuordnung = map;
+          await save();
+        });
+      });
     this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
 
     // ---------- Aufgaben ----------

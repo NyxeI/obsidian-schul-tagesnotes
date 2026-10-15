@@ -80,3 +80,13 @@ test("Leere alte Themen-/Halbjahrordner werden entfernt, Fachordner bleibt", asy
   assert.deepEqual(app.trashed, ["01-Schule/Mathe/_Ohne Halbjahr/Alt", "01-Schule/Mathe/_Ohne Halbjahr"]);
   assert.ok(app.vault.getAbstractFileByPath("01-Schule/Mathe"));
 });
+
+test("Unterthemen werden aus den Überschriften nachgeführt", async () => {
+  const { app, sorter } = setup();
+  const f = app.addNote("x.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: ["[[Geraden]]"] }, "# Mathe\n## Punktprobe\n## Zusammenfassung\n### Lagebeziehungen");
+  await sorter.sortFile(f as any);
+  assert.deepEqual(f.frontmatter!.unterthemen, ["Punktprobe", "Lagebeziehungen"]);
+  f.body = "# Mathe";
+  await sorter.sortFile(f as any);
+  assert.equal(f.frontmatter!.unterthemen, undefined);
+});

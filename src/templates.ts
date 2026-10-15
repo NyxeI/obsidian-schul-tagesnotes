@@ -409,3 +409,78 @@ views:
       - property: file.name
         direction: ASC
 `;
+
+/** Ansichten mit Unterthemen für Thema.base. */
+export const UNTERTHEMEN_VIEWS_THEMA: [string, string][] = [
+  [
+    "Unterthemen",
+    `  - type: table
+    name: Unterthemen
+    filters:
+      and:
+        - list(note.themen).contains(this.file.asLink())
+        - typ == "tagesnote"
+    order:
+      - file.name
+      - datum
+      - unterthemen
+      - file.tags
+    sort:
+      - property: datum
+        direction: DESC
+`,
+  ],
+];
+
+/** Ansichten für Kategorie-Bases: Themen mit Unterthemen, Abi-relevante Notes. */
+export function UNTERTHEMEN_VIEWS_KATEGORIE(property: string): [string, string][] {
+  return [
+    [
+      "Unterthemen",
+      `  - type: table
+    name: Unterthemen
+    filters:
+      and:
+        - list(note.${property}).contains(this.file.asLink())
+        - or:
+            - typ == "thema"
+            - typ == "tagesnote"
+    order:
+      - file.name
+      - kapitel
+      - unterthemen
+      - file.tags
+    sort:
+      - property: file.name
+        direction: ASC
+`,
+    ],
+    [
+      "Abi-relevant",
+      `  - type: table
+    name: Abi-relevant
+    filters:
+      and:
+        - list(note.${property}).contains(this.file.asLink())
+        - file.hasTag("markierung/abi-relevant")
+    order:
+      - file.name
+      - typ
+      - unterthemen
+    sort:
+      - property: file.name
+        direction: ASC
+`,
+    ],
+  ];
+}
+
+/** Ansichten anhängen, die es (nach Name) noch nicht gibt. */
+export function addViews(text: string, views: [string, string][]): string {
+  let out = text;
+  for (const [name, yaml] of views) {
+    if (out.includes(`name: ${name}\n`)) continue;
+    out = out.replace(/\s*$/, "\n") + yaml;
+  }
+  return out;
+}
