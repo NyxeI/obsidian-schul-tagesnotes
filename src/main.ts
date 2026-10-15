@@ -1,23 +1,27 @@
 import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath } from "obsidian";
 import { applyMigration, type MigrationResult } from "./migration/apply.ts";
 import type { Fach, PathConfig } from "./config.ts";
-import { BereichModal, FachModal, ThemaModal, type KategorieWahl, type ThemaChoice } from "./modals";
+import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type KategorieWahl, type ThemaChoice } from "./modals";
+import { Journal } from "./journal-apply.ts";
+import { resultLine, syncTasks } from "./tasks-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
 import { collectThemen } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
-import { DEFAULT_HUB_TEMPLATE, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
+import { DEFAULT_HUB_TEMPLATE, DEFAULT_JOURNAL_BASE, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
   /** Ergebnis der letzten Migration (für Protokoll und Prüfung per CLI). */
   lastMigration: MigrationResult | null = null;
   private sorter = new Sorter(this.app, () => this.settings);
+  journal = new Journal(this.app, () => this.settings, this.sorter);
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.addSettingTab(new SchulSettingTab(this.app, this));
+    this.sorter.extra = (file, fm) => this.journal.sort(file, fm);
 
     this.addRibbonIcon("calendar-plus", "Neue Tagesnote", () => this.pickFachThenThema());
 
@@ -84,6 +88,74 @@ export default class SchulTagesnotesPlugin extends Plugin {
           ).open(),
         ).open();
       },
+    });
+
+    // ---------- Journal ----------
+    this.addCommand({
+      id: "neue-journal-note",
+      name: "Neue Journal-Note …",
+      callback: () =>
+        new ListModal(this.app, this.settings.journal.kategorien, "Journal-Kategorie wählen …", (kat) =>
+          new TextModal(this.app, `Neue Journal-Note: ${kat}`, (titel) =>
+            void this.journal.create(kat, titel).then((f) => this.open(f)).catch((e) => new Notice(`Fehler: ${(e as Error).message}`)),
+          ).open(),
+        ).open(),
+    });
+    this.addCommand({
+      id: "notizblock-archivieren",
+      name: "Notizblock archivieren",
+      icon: "archive",
+      callback: () => void this.archiveNotizblock(),
+    });
+    this.addCommand({
+      id: "notizblock-knopf-toolbar",
+      name: "Notizblock-Knopf zur Editing Toolbar hinzufügen",
+      callback: () => void this.addToolbarButton(),
+    });
+    this.addCommand({
+      id: "journal-migration",
+      name: "Journal-Migration ausführen … (Unique Notes, Daily Notes, Tagespläne)",
+      callback: () => {
+        if (Platform.isMobile) return void new Notice("Die Migration ist nur am Desktop möglich.");
+        void this.journal.planMigration().then((plan) =>
+          new ConfirmModal(
+            this.app,
+            "Journal-Migration ausführen?",
+            `${plan.ops.length} Notes wandern nach ${this.settings.journal.root}/<Jahr>/<Monat>/, ${plan.hubs.length} Kategorie-Hubs werden angelegt` +
+              (plan.notizblock ? `, ${plan.notizblock.from.split("/").pop()} wird zum festen Notizblock` : "") +
+              `. ${plan.skipped.length} Notes ohne Datum bleiben liegen. Vorher ein Backup anlegen!`,
+            () => void this.runJournalMigration(),
+          ).open(),
+        );
+      },
+    });
+
+    // ---------- Aufgaben ----------
+    this.addCommand({
+      id: "aufgaben-verlinken-aktuell",
+      name: "Aufgaben der aktuellen Note mit TaskNotes verlinken",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== "md") return false;
+        if (!checking) void syncTasks(this.app, this.settings, file).then((r) => new Notice(resultLine(r)));
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "aufgaben-verlinken-alle",
+      name: "Aufgaben aus Notizblock, ToDo-Notes und Aufgaben-Quellen mit TaskNotes verlinken …",
+      callback: () =>
+        void this.journal.linkAllTasks(this.settings.tasks.quellen, true).then((r) =>
+          new ConfirmModal(
+            this.app,
+            "Aufgaben verlinken?",
+            `${r.files} Notes: ${r.neu} neue TaskNotes, ${r.verlinkt} Checkboxen werden mit vorhandenen verlinkt, ${r.abgeglichen} Status-Abgleiche. Die Checkboxen bleiben stehen und bekommen einen Link.`,
+            () =>
+              void this.journal
+                .linkAllTasks(this.settings.tasks.quellen, false)
+                .then((x) => new Notice(`${x.files} Notes: ${resultLine(x)}`, 10000)),
+          ).open(),
+        ),
     });
 
     this.app.workspace.onLayoutReady(() => {
@@ -207,6 +279,51 @@ export default class SchulTagesnotesPlugin extends Plugin {
     }
   }
 
+  async archiveNotizblock(): Promise<void> {
+    try {
+      new Notice(await this.journal.archiveNotizblock(), 8000);
+    } catch (e) {
+      new Notice(`Fehler: ${(e as Error).message}`);
+    }
+  }
+
+  /** Trägt den Befehl „Notizblock archivieren“ als Knopf in die Editing Toolbar ein. */
+  async addToolbarButton(): Promise<void> {
+    const plugins = (this.app as unknown as { plugins: { plugins: Record<string, unknown> } }).plugins.plugins;
+    const tb = plugins["editing-toolbar"] as { settings?: { menuCommands?: { id: string; name: string; icon: string }[] }; saveSettings?: () => Promise<void> } | undefined;
+    if (!tb?.settings?.menuCommands || !tb.saveSettings) {
+      new Notice("Editing Toolbar nicht gefunden oder nicht aktiv. Den Befehl „Notizblock archivieren“ dort von Hand hinzufügen.");
+      return;
+    }
+    const id = `${this.manifest.id}:notizblock-archivieren`;
+    if (tb.settings.menuCommands.some((c) => c.id === id)) {
+      new Notice("Der Knopf ist schon in der Editing Toolbar.");
+      return;
+    }
+    tb.settings.menuCommands.push({ id, name: "Notizblock archivieren", icon: "archive" });
+    await tb.saveSettings();
+    // Die Toolbar liest ihre Knöpfe nur beim Laden – einmal neu starten.
+    const mgr = (this.app as unknown as { plugins: { disablePlugin(id: string): Promise<void>; enablePlugin(id: string): Promise<void> } }).plugins;
+    await mgr.disablePlugin("editing-toolbar");
+    await mgr.enablePlugin("editing-toolbar");
+    new Notice("Knopf „Notizblock archivieren“ zur Editing Toolbar hinzugefügt.");
+  }
+
+  journalResult: unknown = null;
+
+  async runJournalMigration(): Promise<void> {
+    const notice = new Notice("Journal-Migration läuft …", 0);
+    this.sorter.paused = true;
+    try {
+      const r = await this.journal.migrate((m) => notice.setMessage(`Journal: ${m}`));
+      this.journalResult = r;
+      notice.setMessage(`Journal-Migration fertig: ${r.plan.ops.length} Notes, ${r.errors.length} Fehler.`);
+      window.setTimeout(() => notice.hide(), 10000);
+    } finally {
+      this.sorter.paused = false;
+    }
+  }
+
   async runMigration(cfg: PathConfig): Promise<MigrationResult> {
     const notice = new Notice("Migration läuft …", 0);
     this.sorter.paused = true;
@@ -256,6 +373,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
       await write(cfg.themaBasePath, DEFAULT_THEMA_BASE);
       await write(cfg.kategorieBasePath, kategorieBase(cfg.property, cfg.zeitraum));
     }
+    await write(this.settings.journal.basePath, DEFAULT_JOURNAL_BASE);
     new Notice(created.length ? `Angelegt: ${created.join(", ")}` : "Alles schon vorhanden.");
   }
 }

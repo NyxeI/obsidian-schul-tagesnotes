@@ -13,6 +13,8 @@ export interface JournalConfig {
 export interface TaskConfig {
   folder: string;
   tag: string;
+  /** Weitere Notes/Ordner, deren offene Checkboxen mit TaskNotes verlinkt werden (neben Notizblock und ToDo-Journal). */
+  quellen: string[];
 }
 
 export interface SchulSettings {
@@ -98,7 +100,7 @@ export const DEFAULT_SETTINGS: SchulSettings = {
     basePath: "05-Journal/_Bases/Journal.base",
     tagPrefix: "journal",
   },
-  tasks: { folder: "TaskNotes/Tasks", tag: "task" },
+  tasks: { folder: "TaskNotes/Tasks", tag: "task", quellen: ["01-Schule/AufgabenFiles", "01-Schule/Hausaufgaben oder To - Do.md"] },
   autoSort: true,
   autoCreateHubs: true,
 };

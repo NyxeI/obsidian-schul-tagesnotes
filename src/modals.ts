@@ -1,4 +1,4 @@
-import { App, FuzzySuggestModal, SuggestModal } from "obsidian";
+import { App, FuzzySuggestModal, Modal, Setting, SuggestModal } from "obsidian";
 import type { Fach, PathConfig } from "./config.ts";
 
 /** Auswahl einer Kategorie (Fach, Projekt) samt Bereich. */
@@ -83,5 +83,53 @@ export class ThemaModal extends SuggestModal<ThemaChoice> {
 
   onChooseSuggestion(choice: ThemaChoice): void {
     this.onPick(choice);
+  }
+}
+
+export class ListModal extends FuzzySuggestModal<string> {
+  constructor(app: App, private items: string[], placeholder: string, private onPick: (item: string) => void) {
+    super(app);
+    this.setPlaceholder(placeholder);
+  }
+
+  getItems(): string[] {
+    return this.items;
+  }
+
+  getItemText(item: string): string {
+    return item;
+  }
+
+  onChooseItem(item: string): void {
+    this.onPick(item);
+  }
+}
+
+/** Einzeiliges Texteingabe-Fenster (Enter bestätigt). */
+export class TextModal extends Modal {
+  private value = "";
+
+  constructor(app: App, private heading: string, private onSubmit: (value: string) => void) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText(this.heading);
+    const submit = () => {
+      this.close();
+      this.onSubmit(this.value);
+    };
+    new Setting(this.contentEl).addText((t) => {
+      t.onChange((v) => (this.value = v));
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submit();
+      });
+      window.setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(this.contentEl).addButton((b) => b.setButtonText("Anlegen").setCta().onClick(submit));
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }

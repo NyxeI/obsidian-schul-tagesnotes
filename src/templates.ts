@@ -114,7 +114,7 @@ views:
 
 /** Base für Kategorie-Hubs (Fach, Projekt). Bei Zeitraum "jahr" wird nach Jahr statt Halbjahr gruppiert. */
 export function kategorieBase(property: string, zeitraum: "halbjahr" | "jahr" = "halbjahr"): string {
-  const base = `# Wird im Fach-Hub eingebettet: Tagesnotes und Themen-Hubs des Fachs (über die Property "${property}").
+  const base = `# Wird im Kategorie-Hub (Fach, Projekt) eingebettet: Tagesnotes und Themen-Hubs der Kategorie (über die Property "${property}").
 filters:
   and:
     - file.ext == "md"
@@ -255,3 +255,65 @@ export function renderTemplate(template: string, v: TemplateVars): string {
     .replace(/\{\{thema\}\}/g, v.themen[0] ?? "")
     .replace(/\{\{base\}\}/g, v.base);
 }
+
+export const DEFAULT_JOURNAL_BASE = `# Journal: datierte Notes (Notizblock-Archiv, ToDo, Notiz, Tagesplan).
+# "Archiv" wird in den Kategorie-Hubs eingebettet (![[Journal.base#Archiv]]) und zeigt deren Notes.
+formulas:
+  monat: date(datum).format("YYYY-MM")
+
+filters:
+  and:
+    - typ == "journal"
+views:
+  - type: table
+    name: Archiv
+    filters:
+      and:
+        - list(note.kategorie).contains(this.file.asLink())
+    order:
+      - file.name
+      - datum
+      - uhrzeit
+      - file.tags
+    sort:
+      - property: datum
+        direction: DESC
+      - property: uhrzeit
+        direction: DESC
+  - type: table
+    name: Alle nach Datum
+    order:
+      - file.name
+      - kategorie
+      - datum
+      - uhrzeit
+    sort:
+      - property: datum
+        direction: DESC
+      - property: uhrzeit
+        direction: DESC
+  - type: table
+    name: Nach Monat
+    groupBy:
+      property: formula.monat
+      direction: DESC
+    order:
+      - file.name
+      - kategorie
+      - datum
+    sort:
+      - property: datum
+        direction: DESC
+  - type: table
+    name: Nach Kategorie
+    groupBy:
+      property: kategorie
+      direction: ASC
+    order:
+      - file.name
+      - datum
+      - uhrzeit
+    sort:
+      - property: datum
+        direction: DESC
+`;
