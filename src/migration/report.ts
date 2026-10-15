@@ -48,7 +48,10 @@ export function renderReport(plan: MigrationPlan, title: string): string {
   out.push("");
 
   out.push("## Fach-Hubs", "");
-  for (const h of plan.fachHubs) out.push(`- \`${h.path}\` – tags: ${h.tags.join(", ")}${h.addEmbed ? " – Fach.base wird angehängt" : ""}`);
+  for (const h of plan.fachHubs) {
+    const how = h.create !== undefined ? " – **wird neu angelegt**" : h.renameFrom ? ` – umbenannt aus \`${h.renameFrom}\`` : "";
+    out.push(`- \`${h.path}\`${how} – tags: ${h.tags.join(", ")}${h.addEmbed ? " – Base wird angehängt" : ""}`);
+  }
   out.push("");
 
   out.push("## Notes → Themen-Hubs", "", "| von | nach | kapitel |", "|---|---|---|");

@@ -1,7 +1,6 @@
 // Migrationsplan: alte Fach/Kapitel/Thema-Struktur → Hubs + Tagesnotes (pure, ohne Obsidian).
-import type { Fach } from "../config.ts";
-import type { SchulSettings } from "../defaults.ts";
-import { computeTarget, findFach, halbjahrFor, linkTarget, normalizeDate, safeName } from "../paths.ts";
+import type { Fach, PathConfig } from "../config.ts";
+import { computeTarget, findFach, linkTarget, normalizeDate, safeName, zeitraumFor } from "../paths.ts";
 import { deriveTags } from "../tags.ts";
 import { splitFrontmatter, splitSections } from "./dates.ts";
 
@@ -16,6 +15,10 @@ export interface FachHubOp {
   fach: string;
   tags: string[];
   addEmbed: boolean;
+  /** Vorhandene Note, die zum Hub umbenannt wird (z. B. "Linux/Linux Hub.md"). */
+  renameFrom?: string;
+  /** Hub fehlt ganz und wird mit diesem Inhalt neu angelegt. */
+  create?: string;
 }
 
 export interface ThemaOp {
@@ -79,12 +82,13 @@ const stem = (p: string) => baseName(p).replace(/\.md$/i, "");
 const dirOf = (p: string) => p.split("/").slice(0, -1).join("/");
 const lineCount = (s: string) => (s ? s.split("\n").length : 0);
 
-export function buildPlan(notes: NoteIn[], otherFiles: string[], cfg: SchulSettings): MigrationPlan {
+export function buildPlan(notes: NoteIn[], otherFiles: string[], cfg: PathConfig): MigrationPlan {
   const plan: MigrationPlan = { fachHubs: [], themen: [], tagesnotes: [], files: [], rewrites: [], skipped: [], untouched: [], warnings: [] };
   const root = cfg.root.replace(/\/+$/, "");
   const themaBase = baseName(cfg.themaBasePath);
-  const fachBase = baseName(cfg.fachBasePath);
-  const halbjahrNames = new Set([...cfg.halbjahre.map((h) => h.name), cfg.noHalbjahrFolder]);
+  const fachBase = baseName(cfg.kategorieBasePath);
+  const zeitraumOrdner = (seg: string) =>
+    seg === cfg.noHalbjahrFolder || (cfg.zeitraum === "jahr" ? /^\d{4}$/.test(seg) : cfg.halbjahre.some((h) => h.name === seg));
 
   // Belegte Pfade (nach der Migration) und Basename-Häufigkeit für eindeutige Links
   const taken = new Set<string>([...notes.map((n) => n.path), ...otherFiles]);
@@ -95,47 +99,65 @@ export function buildPlan(notes: NoteIn[], otherFiles: string[], cfg: SchulSetti
   const existingTages = new Map<string, string>();
   for (const n of notes) {
     if (n.fm?.typ !== "tagesnote") continue;
-    const fach = findFach(linkTarget(n.fm.fach), cfg.faecher);
+    const fach = findFach(linkTarget(n.fm[cfg.property]), cfg.kategorien);
     const datum = normalizeDate(n.fm.datum);
     if (fach && datum) existingTages.set(`${fach.name}|${datum}`, n.path);
   }
 
-  const fachPrefixes = cfg.faecher.map((f) => `${root}/${f.folder}/`);
+  const fachPrefixes = cfg.kategorien.map((f) => `${root}/${f.folder}/`);
   for (const n of notes) {
     if (n.path.startsWith(`${root}/`) && !fachPrefixes.some((p) => n.path.startsWith(p))) plan.untouched.push(n.path);
   }
 
-  for (const fach of cfg.faecher) {
+  for (const fach of cfg.kategorien) {
     const prefix = `${root}/${fach.folder}/`;
     const hubPath = `${prefix}${fach.name}.md`;
-    const hub = notes.find((n) => n.path === hubPath);
+    // Hub: <Kategorie>.md; ersatzweise "<Kategorie> Hub.md" umbenennen; sonst neu anlegen.
+    const hub = notes.find((n) => n.path === hubPath) ?? notes.find((n) => n.path === `${prefix}${fach.name} Hub.md`);
     if (hub) {
       plan.fachHubs.push({
         path: hubPath,
         fach: fach.name,
-        tags: deriveTags(hub.fm?.tags, fach, [], cfg.faecher),
+        tags: deriveTags(hub.fm?.tags, fach, [], cfg.kategorien, cfg.tagPrefix),
         addEmbed: !hub.content.includes(`[[${fachBase}`),
+        ...(hub.path !== hubPath ? { renameFrom: hub.path } : {}),
       });
+      if (hub.path !== hubPath) {
+        plan.warnings.push(`Hub \`${hub.path}\` wird zu \`${hubPath}\` umbenannt (Links werden von Obsidian angepasst).`);
+        taken.delete(hub.path);
+        taken.add(hubPath);
+      }
     } else {
-      plan.warnings.push(`Kein Fach-Hub \`${hubPath}\` gefunden – Fach.base kann für ${fach.name} nicht eingebettet werden.`);
+      const tags = deriveTags([], fach, [], cfg.kategorien, cfg.tagPrefix);
+      plan.fachHubs.push({
+        path: hubPath,
+        fach: fach.name,
+        tags,
+        addEmbed: false,
+        create: ["---", `typ: ${cfg.property}`, "tags:", ...tags.map((t) => `  - ${t}`), "---", `# ${fach.name}`, "", "## Übersicht", `![[${fachBase}]]`, ""].join("\n"),
+      });
+      taken.add(hubPath);
+      plan.warnings.push(`Kein Hub für ${fach.name} gefunden – \`${hubPath}\` wird neu angelegt.`);
     }
+    const hubSource = hub?.path ?? hubPath;
 
+    // Nur für Nicht-Markdown-Dateien: Anhänge in der neuen Struktur bleiben liegen.
+    // (Notes ohne typ in Zeitraum-Ordnern, z. B. W-Seminar/12-1/…, sind Altbestand und werden migriert.)
     const isNewStructure = (rel: string) => {
       const first = rel.split("/")[0];
-      return first === cfg.hubFolder || halbjahrNames.has(first);
+      return first === cfg.hubFolder || zeitraumOrdner(first);
     };
 
     // --- Notes → Themen-Hubs (+ Tagesabschnitte) ---
     for (const n of notes.filter((x) => x.path.startsWith(prefix)).sort((a, b) => a.path.localeCompare(b.path))) {
       const rel = n.path.slice(prefix.length);
-      if (n.path === hubPath) continue;
+      if (n.path === hubPath || n.path === hubSource) continue;
       const fm = n.fm ?? {};
       if (fm.typ === "tagesnote") { plan.skipped.push({ path: n.path, reason: "bereits Tagesnote" }); continue; }
       if (fm.typ === "thema" && rel.startsWith(`${cfg.hubFolder}/`)) { plan.skipped.push({ path: n.path, reason: "bereits Themen-Hub" }); continue; }
       if (fm["excalidraw-plugin"] !== undefined) { plan.skipped.push({ path: n.path, reason: "Excalidraw-Zeichnung" }); continue; }
       if (fm["kanban-plugin"] !== undefined) { plan.skipped.push({ path: n.path, reason: "Kanban-Board" }); continue; }
       if (/(^|\/)attachments\//i.test(rel)) { plan.skipped.push({ path: n.path, reason: "liegt in attachments" }); continue; }
-      if (isNewStructure(rel)) { plan.skipped.push({ path: n.path, reason: "liegt schon in neuer Struktur" }); continue; }
 
       const dir = dirOf(rel);
       let name = stem(n.path);
@@ -160,8 +182,8 @@ export function buildPlan(notes: NoteIn[], otherFiles: string[], cfg: SchulSetti
       if (!unique) plan.warnings.push(`Name „${name}“ ist im Vault mehrdeutig – Tagesnotes verlinken den Hub per Pfad.`);
 
       for (const s of split.sections) {
-        if (!halbjahrFor(s.datum, cfg.halbjahre)) {
-          plan.warnings.push(`\`${n.path}\` Zeile ${s.line}: Datum ${s.datum} („${s.marker}“) liegt in keinem Halbjahr → Ordner „${cfg.noHalbjahrFolder}“. Tippfehler im Jahr?`);
+        if (!zeitraumFor(s.datum, cfg)) {
+          plan.warnings.push(`\`${n.path}\` Zeile ${s.line}: Datum ${s.datum} („${s.marker}“) liegt in keinem Zeitraum → Ordner „${cfg.noHalbjahrFolder}“. Tippfehler im Jahr?`);
         }
         addContribution(plan, tagesByKey, existingTages, taken, cfg, fach, s.datum, hubLinkTarget, name, s.body, {
           from: n.path, thema: name, marker: s.marker, line: s.line, lines: lineCount(s.body),
@@ -173,7 +195,7 @@ export function buildPlan(notes: NoteIn[], otherFiles: string[], cfg: SchulSetti
         to,
         fach: fach.name,
         kapitel: dir || null,
-        tags: deriveTags(fm.tags, fach, [name], cfg.faecher),
+        tags: deriveTags(fm.tags, fach, [name], cfg.kategorien, cfg.tagPrefix),
         newBody: split.sections.length ? split.preamble : null,
         addEmbed: !n.content.includes(`[[${themaBase}`),
         split: split.sections.length,
@@ -212,7 +234,7 @@ function addContribution(
   byKey: Map<string, TagesnoteOp>,
   existing: Map<string, string>,
   taken: Set<string>,
-  cfg: SchulSettings,
+  cfg: PathConfig,
   fach: Fach,
   datum: string,
   linkText: string,
@@ -225,7 +247,7 @@ function addContribution(
   let op = byKey.get(key);
   if (!op) {
     const existingPath = existing.get(key);
-    const target = computeTarget({ fach: `[[${fach.name}]]`, datum, themen: [`[[${linkText}]]`] }, cfg)!;
+    const target = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum, themen: [`[[${linkText}]]`] }, cfg)!;
     const path = existingPath ?? target.path;
     if (!existingPath && taken.has(path)) {
       plan.warnings.push(`Tagesnote \`${path}\` existiert schon als andere Datei – Konflikt, bitte prüfen.`);
@@ -277,15 +299,15 @@ function fixInkPaths(plan: MigrationPlan, notes: NoteIn[], otherFiles: string[])
 }
 
 /** Vollständiger Inhalt einer neu anzulegenden Tagesnote. */
-export function renderTagesnote(op: TagesnoteOp, fach: Fach, allFaecher: Fach[]): string {
+export function renderTagesnote(op: TagesnoteOp, fach: Fach, cfg: PathConfig): string {
   const names = op.themen.map((t) => linkTarget(`[[${t}]]`) ?? t);
-  const tags = deriveTags([], fach, names, allFaecher);
+  const tags = deriveTags([], fach, names, cfg.kategorien, cfg.tagPrefix);
   return [
     "---",
     "typ: tagesnote",
-    `fach: "[[${fach.name}]]"`,
+    `${cfg.property}: "[[${fach.name}]]"`,
     `datum: ${op.datum}`,
-    `halbjahr: ${op.halbjahr ?? ""}`,
+    ...(cfg.zeitraum === "halbjahr" ? [`halbjahr: ${op.halbjahr ?? ""}`] : []),
     "themen:",
     ...op.themen.map((t) => `  - "[[${t}]]"`),
     "tags:",

@@ -1,14 +1,14 @@
 // Probelauf der Migration direkt auf einem Vault-Ordner – liest nur, schreibt nur den Bericht.
-// Aufruf: node scripts/probelauf.ts <vault-pfad> <bericht.md> [plugin-data.json]
+// Aufruf: node scripts/probelauf.ts <vault-pfad> <bericht.md> [bereich-id=schule] [plugin-data.json]
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
-import { DEFAULT_SETTINGS, type SchulSettings } from "../src/defaults.ts";
+import { mergeSettings, pathConfig } from "../src/defaults.ts";
 import { buildPlan, type NoteIn } from "../src/migration/plan.ts";
 import { renderReport } from "../src/migration/report.ts";
 
-const [vault, reportPath, dataPath] = process.argv.slice(2);
+const [vault, reportPath, bereichId = "schule", dataPath] = process.argv.slice(2);
 if (!vault || !reportPath) {
-  console.error("Aufruf: node scripts/probelauf.ts <vault> <bericht.md> [data.json]");
+  console.error("Aufruf: node scripts/probelauf.ts <vault> <bericht.md> [bereich-id] [data.json]");
   process.exit(1);
 }
 
@@ -54,8 +54,12 @@ function readFrontmatter(content: string): Record<string, unknown> | null {
 }
 
 walk(vault);
-const cfg: SchulSettings = { ...DEFAULT_SETTINGS };
-if (dataPath && existsSync(dataPath)) Object.assign(cfg, JSON.parse(readFileSync(dataPath, "utf8")));
-const plan = buildPlan(notes, others, cfg);
-writeFileSync(reportPath, renderReport(plan, `Migrationsbericht (Probelauf) – ${vault}`));
+const settings = mergeSettings(dataPath && existsSync(dataPath) ? JSON.parse(readFileSync(dataPath, "utf8")) : null);
+const bereich = settings.bereiche.find((b) => b.id === bereichId);
+if (!bereich) {
+  console.error(`Unbekannter Bereich „${bereichId}“. Vorhanden: ${settings.bereiche.map((b) => b.id).join(", ")}`);
+  process.exit(1);
+}
+const plan = buildPlan(notes, others, pathConfig(settings, bereich));
+writeFileSync(reportPath, renderReport(plan, `Migrationsbericht (Probelauf) – ${bereich.name} – ${vault}`));
 console.log(JSON.stringify({ notes: notes.length, files: others.length, themen: plan.themen.length, tagesnoten: plan.tagesnotes.length, dateien: plan.files.length, warnungen: plan.warnings.length }));

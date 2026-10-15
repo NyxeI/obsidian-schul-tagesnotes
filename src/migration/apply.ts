@@ -1,5 +1,5 @@
 import { type App, TFile, TFolder, normalizePath } from "obsidian";
-import type { SchulSettings } from "../defaults.ts";
+import type { PathConfig } from "../config.ts";
 import { findFach } from "../paths.ts";
 import { ensureFolder } from "../sort.ts";
 import { splitFrontmatter } from "./dates.ts";
@@ -16,7 +16,7 @@ export interface MigrationResult {
 }
 
 /** Liest den Vault und baut den Plan (wie der Probelauf, aber mit Obsidians Metadaten). */
-export async function planFromVault(app: App, cfg: SchulSettings): Promise<MigrationPlan> {
+export async function planFromVault(app: App, cfg: PathConfig): Promise<MigrationPlan> {
   const notes: NoteIn[] = [];
   for (const f of app.vault.getMarkdownFiles()) {
     notes.push({ path: f.path, content: await app.vault.cachedRead(f), fm: app.metadataCache.getFileCache(f)?.frontmatter });
@@ -40,7 +40,7 @@ const fileAt = (app: App, path: string) => {
 const appendText = (text: string, block: string) => text.replace(/\s*$/, "") + "\n\n" + block + "\n";
 
 /** Führt die Migration aus. Fehler einzelner Schritte werden protokolliert, der Rest läuft weiter. */
-export async function applyMigration(app: App, cfg: SchulSettings, progress?: (msg: string) => void): Promise<MigrationResult> {
+export async function applyMigration(app: App, cfg: PathConfig, progress?: (msg: string) => void): Promise<MigrationResult> {
   const plan = await planFromVault(app, cfg);
   const result: MigrationResult = { plan, log: [], errors: [], newlyUnresolved: [], removedFolders: [], done: false };
   const log = (m: string) => {
@@ -56,7 +56,7 @@ export async function applyMigration(app: App, cfg: SchulSettings, progress?: (m
   };
   const before = unresolvedSet(app);
   const themaBase = cfg.themaBasePath.split("/").pop()!;
-  const fachBase = cfg.fachBasePath.split("/").pop()!;
+  const fachBase = cfg.kategorieBasePath.split("/").pop()!;
 
   // 1. Ink-Pfade umschreiben (noch an den alten Pfaden)
   for (const r of plan.rewrites) {
@@ -71,14 +71,14 @@ export async function applyMigration(app: App, cfg: SchulSettings, progress?: (m
   // 2. Tagesnotes anlegen bzw. ergänzen (bevor die Quellen gekürzt werden)
   for (const op of plan.tagesnotes) {
     await attempt(`Tagesnote ${op.path}`, async () => {
-      const fach = findFach(op.fach, cfg.faecher)!;
+      const fach = findFach(op.fach, cfg.kategorien)!;
       if (op.existing) {
         const f = fileAt(app, op.path);
         if (!f) throw new Error("vorhandene Tagesnote fehlt");
         await app.vault.process(f, (c) => appendText(c, op.content));
       } else {
         await ensureFolder(app, op.path.split("/").slice(0, -1).join("/"));
-        await app.vault.create(op.path, renderTagesnote(op, fach, cfg.faecher));
+        await app.vault.create(op.path, renderTagesnote(op, fach, cfg));
       }
     });
   }
@@ -110,7 +110,7 @@ export async function applyMigration(app: App, cfg: SchulSettings, progress?: (m
       }
       await app.fileManager.processFrontMatter(f, (fm) => {
         fm.typ = "thema";
-        fm.fach = `[[${t.fach}]]`;
+        fm[cfg.property] = `[[${t.fach}]]`;
         if (t.kapitel) fm.kapitel = t.kapitel;
         fm.tags = t.tags;
       });
@@ -123,10 +123,20 @@ export async function applyMigration(app: App, cfg: SchulSettings, progress?: (m
   // 5. Fach-Hubs
   for (const h of plan.fachHubs) {
     await attempt(`Fach-Hub ${h.path}`, async () => {
+      if (h.create !== undefined) {
+        await ensureFolder(app, h.path.split("/").slice(0, -1).join("/"));
+        await app.vault.create(h.path, h.create);
+        return;
+      }
+      if (h.renameFrom) {
+        const old = fileAt(app, h.renameFrom);
+        if (!old) throw new Error("umzubenennender Hub fehlt");
+        await app.fileManager.renameFile(old, h.path);
+      }
       const f = fileAt(app, h.path);
       if (!f) throw new Error("Fach-Hub fehlt");
       await app.fileManager.processFrontMatter(f, (fm) => {
-        fm.typ = "fach";
+        fm.typ = cfg.property;
         fm.tags = h.tags;
       });
       if (h.addEmbed) await app.vault.process(f, (c) => appendText(c, `## Übersicht\n![[${fachBase}]]`));
@@ -146,7 +156,7 @@ export async function applyMigration(app: App, cfg: SchulSettings, progress?: (m
   log(`Dateien: ${plan.files.length}`);
 
   // 7. Leere alte Ordner entfernen (nie den Fachordner selbst)
-  for (const fach of cfg.faecher) {
+  for (const fach of cfg.kategorien) {
     const folder = app.vault.getAbstractFileByPath(normalizePath(`${cfg.root}/${fach.folder}`));
     if (folder instanceof TFolder) await removeEmpty(app, folder, true, result);
   }

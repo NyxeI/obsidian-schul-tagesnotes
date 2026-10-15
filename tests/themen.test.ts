@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { collectThemen, type NoteInfo } from "../src/themen.ts";
-import { DEFAULT_SETTINGS as cfg } from "../src/defaults.ts";
+import { DEFAULT_SETTINGS, schule } from "../src/defaults.ts";
 
-const mathe = cfg.faecher.find((f) => f.name === "Mathe")!;
+const cfg = schule(DEFAULT_SETTINGS);
+
+const mathe = cfg.kategorien.find((f) => f.name === "Mathe")!;
 const n = (path: string, fm: Record<string, unknown> | null = null, mtime = 0): NoteInfo => ({
   path,
   basename: path.split("/").pop()!.replace(/\.md$/, ""),

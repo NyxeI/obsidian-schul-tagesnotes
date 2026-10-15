@@ -17,13 +17,35 @@ export interface Halbjahr {
   end: string;
 }
 
-export interface PathConfig {
+/** Zeitraum-Ordner einer Tagesnote: Schulhalbjahr ("13-1") oder Kalenderjahr ("2026"). */
+export type Zeitraum = "halbjahr" | "jahr";
+
+/** Ein Bereich des Vaults mit Kategorien (Fächer, Projekte), Hubs, Themen und Tagesnotes. */
+export interface BereichConfig {
+  id: string;
+  name: string;
+  /** Wurzelordner, darunter ein Ordner pro Kategorie. */
   root: string;
+  /** Property, die die Kategorie verlinkt ("fach", "projekt"); zugleich `typ` des Kategorie-Hubs. */
+  property: string;
+  /** Oberstes Tag-Präfix ("schule" → schule/mathe). */
+  tagPrefix: string;
+  zeitraum: Zeitraum;
+  kategorien: Fach[];
   hubFolder: string;
   generalFolder: string;
   noHalbjahrFolder: string;
   fileNamePattern: string;
-  faecher: Fach[];
+  tagesnoteTemplate: string;
+  hubTemplate: string;
+  /** Base für Kategorie-Hubs (Fach.base, Projekt.base). */
+  kategorieBasePath: string;
+  /** Base für Themen-Hubs ({{base}} im Hub-Template). */
+  themaBasePath: string;
+}
+
+/** Bereich + gemeinsame Halbjahre: alles, was Pfad- und Tag-Berechnung brauchen. */
+export interface PathConfig extends BereichConfig {
   halbjahre: Halbjahr[];
 }
 

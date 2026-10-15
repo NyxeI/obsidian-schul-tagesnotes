@@ -1,9 +1,9 @@
 import { type App, Notice, TFile, TFolder, normalizePath } from "obsidian";
-import type { Fach } from "./config.ts";
+import type { Fach, PathConfig } from "./config.ts";
 import { computeTarget, findFach, hubFolderPath, linkTarget, safeName } from "./paths.ts";
 import { deriveTags, sameList } from "./tags.ts";
 import { DEFAULT_HUB_TEMPLATE, renderTemplate } from "./templates.ts";
-import type { SchulSettings } from "./defaults.ts";
+import { bereichOf, type SchulSettings } from "./defaults.ts";
 
 export type SortResult = "moved" | "updated" | "unchanged" | "skipped" | "conflict";
 
@@ -32,6 +32,8 @@ export class Sorter {
 
   private app: App;
   private settings: () => SchulSettings;
+  /** Zusätzliche Sortierung für andere Note-Typen (z. B. Journal); gibt null zurück, wenn nicht zuständig. */
+  extra: ((file: TFile, fm: Record<string, unknown>) => Promise<SortResult | null>) | null = null;
 
   constructor(app: App, settings: () => SchulSettings) {
     this.app = app;
@@ -59,10 +61,17 @@ export class Sorter {
   async sortFile(file: TFile): Promise<SortResult> {
     if (file.extension !== "md" || this.busy.has(file.path)) return "skipped";
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    if (fm?.typ === "thema") return this.syncHub(file, fm);
-    if (fm?.typ !== "tagesnote") return "skipped";
+    if (!fm) return "skipped";
+    if (this.extra) {
+      const r = await this.extra(file, fm);
+      if (r) return r;
+    }
+    const s = this.settings();
+    const cfg = bereichOf(s, fm);
+    if (!cfg) return "skipped";
+    if (fm.typ === "thema") return this.syncHub(file, fm, cfg);
+    if (fm.typ !== "tagesnote") return "skipped";
 
-    const cfg = this.settings();
     const target = computeTarget(fm, cfg);
     if (!target) return "skipped";
 
@@ -70,18 +79,19 @@ export class Sorter {
     try {
       let result: SortResult = "unchanged";
 
-      const tags = deriveTags(fm.tags, target.fach, target.themen, cfg.faecher);
+      const tags = deriveTags(fm.tags, target.fach, target.themen, cfg.kategorien, cfg.tagPrefix);
       const halbjahr = target.halbjahr ?? "";
-      if (!sameList(fm.tags, tags) || String(fm.halbjahr ?? "") !== halbjahr) {
+      const halbjahrStale = cfg.zeitraum === "halbjahr" && String(fm.halbjahr ?? "") !== halbjahr;
+      if (!sameList(fm.tags, tags) || halbjahrStale) {
         await this.app.fileManager.processFrontMatter(file, (f) => {
           f.tags = tags;
-          f.halbjahr = halbjahr;
+          if (cfg.zeitraum === "halbjahr") f.halbjahr = halbjahr;
         });
         result = "updated";
       }
 
-      if (cfg.autoCreateHubs) {
-        for (const thema of target.themen) await this.ensureHub(target.fach, thema, file.path);
+      if (s.autoCreateHubs) {
+        for (const thema of target.themen) await this.ensureHub(cfg, target.fach, thema, file.path);
       }
 
       if (file.path !== target.path) {
@@ -92,7 +102,7 @@ export class Sorter {
         const oldFolder = file.parent;
         await ensureFolder(this.app, target.folder);
         await this.app.fileManager.renameFile(file, target.path);
-        if (oldFolder) await this.removeEmptyFolders(oldFolder, target.fach.folder);
+        if (oldFolder) await this.removeEmptyFolders(oldFolder, `${cfg.root}/${target.fach.folder}`);
         result = "moved";
       }
       return result;
@@ -101,9 +111,9 @@ export class Sorter {
     }
   }
 
-  /** Entfernt leer gewordene Themen-/Halbjahr-Ordner unterhalb des Fachordners (nie den Fachordner selbst). */
-  private async removeEmptyFolders(folder: TFolder, fachFolder: string): Promise<void> {
-    const fachPath = normalizePath(`${this.settings().root}/${fachFolder}`);
+  /** Entfernt leer gewordene Ordner unterhalb von `stopAt` (nie `stopAt` selbst). */
+  async removeEmptyFolders(folder: TFolder, stopAt: string): Promise<void> {
+    const fachPath = normalizePath(stopAt);
     let current: TFolder | null = folder;
     while (current && current.path.startsWith(fachPath + "/") && current.children.length === 0) {
       const parent: TFolder | null = current.parent;
@@ -113,11 +123,10 @@ export class Sorter {
   }
 
   /** Themen-Hubs: nur Tags synchron halten, nicht verschieben. */
-  private async syncHub(file: TFile, fm: Record<string, unknown>): Promise<SortResult> {
-    const cfg = this.settings();
-    const fach = findFach(linkTarget(fm.fach), cfg.faecher);
+  private async syncHub(file: TFile, fm: Record<string, unknown>, cfg: PathConfig): Promise<SortResult> {
+    const fach = findFach(linkTarget(fm[cfg.property]), cfg.kategorien);
     if (!fach) return "skipped";
-    const tags = deriveTags(fm.tags, fach, [file.basename], cfg.faecher);
+    const tags = deriveTags(fm.tags, fach, [file.basename], cfg.kategorien, cfg.tagPrefix);
     if (sameList(fm.tags, tags)) return "unchanged";
     await this.app.fileManager.processFrontMatter(file, (f) => {
       f.tags = tags;
@@ -126,21 +135,20 @@ export class Sorter {
   }
 
   /** Legt den Themen-Hub an, falls kein Link-Ziel mit diesem Namen existiert. Gibt die Datei zurück. */
-  async ensureHub(fach: Fach, thema: string, sourcePath = ""): Promise<TFile> {
+  async ensureHub(cfg: PathConfig, fach: Fach, thema: string, sourcePath = ""): Promise<TFile> {
     const existing = this.app.metadataCache.getFirstLinkpathDest(thema, sourcePath);
     if (existing) return existing;
-    const cfg = this.settings();
     const folder = hubFolderPath(fach, cfg);
     const path = normalizePath(`${folder}/${safeName(thema)}.md`);
     const atPath = this.app.vault.getAbstractFileByPath(path);
     if (atPath instanceof TFile) return atPath;
     const template = await readTemplate(this.app, cfg.hubTemplate, DEFAULT_HUB_TEMPLATE);
     const baseName = cfg.themaBasePath.split("/").pop() ?? cfg.themaBasePath;
-    const content = renderTemplate(template, { fach: fach.name, datum: "", halbjahr: "", themen: [thema], base: baseName });
+    const content = renderTemplate(template, { fach: fach.name, datum: "", halbjahr: "", themen: [thema], base: baseName, property: cfg.property });
     await ensureFolder(this.app, folder);
     const hub = await this.app.vault.create(path, content);
     await this.app.fileManager.processFrontMatter(hub, (f) => {
-      f.tags = deriveTags(f.tags, fach, [thema], cfg.faecher);
+      f.tags = deriveTags(f.tags, fach, [thema], cfg.kategorien, cfg.tagPrefix);
     });
     return hub;
   }

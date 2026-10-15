@@ -6,19 +6,28 @@ import { deriveTags, tagList } from "../src/tags.ts";
 import { DEFAULT_TAGESNOTE_TEMPLATE, renderTemplate } from "../src/templates.ts";
 
 const cfg: PathConfig = {
+  id: "schule",
+  name: "Schule",
   root: "01-Schule",
+  property: "fach",
+  tagPrefix: "schule",
+  zeitraum: "halbjahr",
   hubFolder: "_Themen",
   generalFolder: "_Allgemein",
   noHalbjahrFolder: "_Ohne Halbjahr",
   fileNamePattern: "{datum} {fach}",
-  faecher: parseFaecher("Mathe\nPolitik und Gesellschaft | Politik und Gesellschaft | politik\nFranzösisch"),
+  tagesnoteTemplate: "",
+  hubTemplate: "",
+  kategorieBasePath: "Fach.base",
+  themaBasePath: "Thema.base",
+  kategorien: parseFaecher("Mathe\nPolitik und Gesellschaft | Politik und Gesellschaft | politik\nFranzösisch"),
   halbjahre: parseHalbjahre("12-1 | 2026-09-08 | 2027-02-12\n12-2 | 2027-02-13 | 2027-09-13\nkaputt | 2026 | x"),
 };
 
 test("Konfiguration wird aus Zeilen gelesen", () => {
-  assert.deepEqual(cfg.faecher[0], { name: "Mathe", folder: "Mathe", tag: "mathe" });
-  assert.equal(cfg.faecher[1].tag, "politik");
-  assert.equal(cfg.faecher[2].tag, "franzoesisch");
+  assert.deepEqual(cfg.kategorien[0], { name: "Mathe", folder: "Mathe", tag: "mathe" });
+  assert.equal(cfg.kategorien[1].tag, "politik");
+  assert.equal(cfg.kategorien[2].tag, "franzoesisch");
   assert.equal(cfg.halbjahre.length, 2);
 });
 
@@ -86,13 +95,13 @@ test("Fach aus dem Pfad", () => {
 });
 
 test("Tags: verwaltete werden ersetzt, eigene bleiben", () => {
-  const mathe = cfg.faecher[0];
+  const mathe = cfg.kategorien[0];
   assert.deepEqual(tagList("#a, b"), ["a", "b"]);
   assert.deepEqual(
-    deriveTags(["#Abi_Relevant", "schule/politik", "mathe/alt", "politik/x"], mathe, ["Geraden", "Lage von Ebenen"], cfg.faecher),
+    deriveTags(["#Abi_Relevant", "schule/politik", "mathe/alt", "politik/x"], mathe, ["Geraden", "Lage von Ebenen"], cfg.kategorien),
     ["schule/mathe", "mathe/geraden", "mathe/lage-von-ebenen", "Abi_Relevant"],
   );
-  assert.deepEqual(deriveTags(undefined, mathe, [], cfg.faecher), ["schule/mathe"]);
+  assert.deepEqual(deriveTags(undefined, mathe, [], cfg.kategorien), ["schule/mathe"]);
 });
 
 test("Template-Platzhalter", () => {

@@ -64,12 +64,18 @@ export function fachFromPath(path: string, cfg: PathConfig): Fach | null {
   const prefix = cfg.root.replace(/\/$/, "") + "/";
   if (!path.startsWith(prefix)) return null;
   const folder = path.slice(prefix.length).split("/")[0];
-  return cfg.faecher.find((f) => f.folder === folder) ?? null;
+  return cfg.kategorien.find((f) => f.folder === folder) ?? null;
+}
+
+/** Name des Zeitraum-Ordners: Halbjahr ("13-1") bzw. Jahr ("2026"); null = außerhalb aller Halbjahre. */
+export function zeitraumFor(datum: string, cfg: PathConfig): string | null {
+  return cfg.zeitraum === "jahr" ? datum.slice(0, 4) : halbjahrFor(datum, cfg.halbjahre);
 }
 
 export interface Target {
   fach: Fach;
   datum: string;
+  /** Nur bei Zeitraum "halbjahr" gesetzt (Property `halbjahr`). */
   halbjahr: string | null;
   themen: string[];
   folder: string;
@@ -79,13 +85,14 @@ export interface Target {
 /** Zielort einer Tagesnote aus ihrem Frontmatter; null, wenn Fach oder Datum fehlen. */
 export function computeTarget(fm: Record<string, unknown> | null | undefined, cfg: PathConfig): Target | null {
   if (!fm) return null;
-  const fach = findFach(linkTarget(fm.fach), cfg.faecher);
+  const fach = findFach(linkTarget(fm[cfg.property]), cfg.kategorien);
   const datum = normalizeDate(fm.datum);
   if (!fach || !datum) return null;
-  const halbjahr = halbjahrFor(datum, cfg.halbjahre);
+  const zeitraum = zeitraumFor(datum, cfg);
+  const halbjahr = cfg.zeitraum === "halbjahr" ? zeitraum : null;
   const themen = linkList(fm.themen);
   const themaFolder = themen.length ? safeName(themen[0]) || cfg.generalFolder : cfg.generalFolder;
-  const folder = [cfg.root, fach.folder, halbjahr ?? cfg.noHalbjahrFolder, themaFolder]
+  const folder = [cfg.root, fach.folder, zeitraum ?? cfg.noHalbjahrFolder, themaFolder]
     .map((p) => p.replace(/^\/+|\/+$/g, ""))
     .filter(Boolean)
     .join("/");

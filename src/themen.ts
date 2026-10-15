@@ -26,7 +26,7 @@ export function collectThemen(notes: NoteInfo[], fach: Fach, cfg: PathConfig): s
 
   for (const n of notes) {
     const fm = n.fm ?? {};
-    const sameFach = findFach(linkTarget(fm.fach), cfg.faecher) === fach;
+    const sameFach = findFach(linkTarget(fm[cfg.property]), cfg.kategorien) === fach;
     if (fm.typ === "tagesnote") {
       if (!sameFach) continue;
       const datum = normalizeDate(fm.datum) ?? "";
@@ -41,7 +41,7 @@ export function collectThemen(notes: NoteInfo[], fach: Fach, cfg: PathConfig): s
       continue;
     }
     if (!n.path.startsWith(prefix)) continue;
-    if (fm.typ === "fach" || n.path === `${prefix}${fach.name}.md`) continue;
+    if (fm.typ === cfg.property || n.path === `${prefix}${fach.name}.md`) continue;
     if (fm["excalidraw-plugin"] !== undefined || fm["kanban-plugin"] !== undefined) continue;
     if (/(^|\/)attachments\//i.test(n.path.slice(prefix.length))) continue;
     note(n.basename, n.mtime);

@@ -2,7 +2,7 @@
 
 export const DEFAULT_TAGESNOTE_TEMPLATE = `---
 typ: tagesnote
-fach: "[[{{fach}}]]"
+{{property}}: "[[{{fach}}]]"
 datum: {{datum}}
 halbjahr: {{halbjahr}}
 themen:
@@ -15,7 +15,7 @@ tags: []
 
 export const DEFAULT_HUB_TEMPLATE = `---
 typ: thema
-fach: "[[{{fach}}]]"
+{{property}}: "[[{{fach}}]]"
 tags: []
 ---
 # {{thema}}
@@ -112,7 +112,9 @@ views:
         direction: ASC
 `;
 
-export const DEFAULT_FACH_BASE = `# Wird im Fach-Hub eingebettet: Tagesnotes und Themen-Hubs des Fachs (über die Property "fach").
+/** Base für Kategorie-Hubs (Fach, Projekt). Bei Zeitraum "jahr" wird nach Jahr statt Halbjahr gruppiert. */
+export function kategorieBase(property: string, zeitraum: "halbjahr" | "jahr" = "halbjahr"): string {
+  const base = `# Wird im Fach-Hub eingebettet: Tagesnotes und Themen-Hubs des Fachs (über die Property "${property}").
 filters:
   and:
     - file.ext == "md"
@@ -121,7 +123,7 @@ views:
     name: Tagesnotes nach Datum
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "tagesnote"
     order:
       - file.name
@@ -136,7 +138,7 @@ views:
     name: Tagesnotes nach Halbjahr
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "tagesnote"
     groupBy:
       property: halbjahr
@@ -154,7 +156,7 @@ views:
     name: Tagesnotes nach Themen
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "tagesnote"
     groupBy:
       property: themen
@@ -172,7 +174,7 @@ views:
     name: Tagesnotes nach Tags
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "tagesnote"
     groupBy:
       property: file.tags
@@ -190,7 +192,7 @@ views:
     name: Themen-Hubs
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "thema"
     order:
       - file.name
@@ -204,7 +206,7 @@ views:
     name: Themen-Hubs zuletzt geändert
     filters:
       and:
-        - list(note.fach).contains(this.file.asLink())
+        - list(note.${property}).contains(this.file.asLink())
         - typ == "thema"
     order:
       - file.name
@@ -215,26 +217,41 @@ views:
       - property: file.mtime
         direction: DESC
 `;
+  if (zeitraum === "halbjahr") return base;
+  return base
+    .replace("filters:\n", "formulas:\n  jahr: date(datum).year\n\nfilters:\n")
+    .replace("Tagesnotes nach Halbjahr", "Tagesnotes nach Jahr")
+    .replace(/property: halbjahr/g, "property: formula.jahr")
+    .replace(/      - halbjahr\n/g, "");
+}
+
+export const DEFAULT_FACH_BASE = kategorieBase("fach");
 
 export interface TemplateVars {
   fach: string;
   datum: string;
-  halbjahr: string;
+  /** null = Bereich ohne Halbjahre: die Zeile "halbjahr: …" entfällt. */
+  halbjahr: string | null;
+  /** Name der Kategorie-Property (Standard "fach"). */
+  property?: string;
   /** Themen ohne Klammern; leer = keine Themen. */
   themen: string[];
   base: string;
 }
 
-/** Ersetzt {{fach}}, {{datum}}, {{halbjahr}}, {{thema}}, {{themen}} (YAML-Liste) und {{base}}. */
+/** Ersetzt {{property}}, {{fach}}, {{datum}}, {{halbjahr}}, {{thema}}, {{themen}} (YAML-Liste) und {{base}}. */
 export function renderTemplate(template: string, v: TemplateVars): string {
   const themenYaml = v.themen.length
     ? v.themen.map((t) => `  - "[[${t}]]"`).join("\n")
     : "  []";
-  return template
+  let out = template;
+  if (v.halbjahr === null) out = out.replace(/^halbjahr:[ \t]*\{\{halbjahr\}\}[ \t]*\r?\n/m, "");
+  return out
+    .replace(/\{\{property\}\}/g, v.property ?? "fach")
     .replace(/\{\{themen\}\}/g, themenYaml)
     .replace(/\{\{fach\}\}/g, v.fach)
     .replace(/\{\{datum\}\}/g, v.datum)
-    .replace(/\{\{halbjahr\}\}/g, v.halbjahr)
+    .replace(/\{\{halbjahr\}\}/g, v.halbjahr ?? "")
     .replace(/\{\{thema\}\}/g, v.themen[0] ?? "")
     .replace(/\{\{base\}\}/g, v.base);
 }

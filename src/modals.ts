@@ -1,21 +1,46 @@
 import { App, FuzzySuggestModal, SuggestModal } from "obsidian";
-import type { Fach } from "./config.ts";
+import type { Fach, PathConfig } from "./config.ts";
 
-export class FachModal extends FuzzySuggestModal<Fach> {
-  constructor(app: App, private faecher: Fach[], private onPick: (fach: Fach) => void) {
+/** Auswahl einer Kategorie (Fach, Projekt) samt Bereich. */
+export interface KategorieWahl {
+  cfg: PathConfig;
+  fach: Fach;
+}
+
+export class FachModal extends FuzzySuggestModal<KategorieWahl> {
+  constructor(app: App, private items: KategorieWahl[], private onPick: (wahl: KategorieWahl) => void) {
     super(app);
-    this.setPlaceholder("Fach wählen …");
+    this.setPlaceholder("Fach oder Projekt wählen …");
   }
 
-  getItems(): Fach[] {
-    return this.faecher;
+  getItems(): KategorieWahl[] {
+    return this.items;
   }
 
-  getItemText(item: Fach): string {
-    return item.name;
+  getItemText(item: KategorieWahl): string {
+    return `${item.fach.name} · ${item.cfg.name}`;
   }
 
-  onChooseItem(item: Fach): void {
+  onChooseItem(item: KategorieWahl): void {
+    this.onPick(item);
+  }
+}
+
+export class BereichModal extends FuzzySuggestModal<PathConfig> {
+  constructor(app: App, private bereiche: PathConfig[], private onPick: (cfg: PathConfig) => void) {
+    super(app);
+    this.setPlaceholder("Bereich wählen …");
+  }
+
+  getItems(): PathConfig[] {
+    return this.bereiche;
+  }
+
+  getItemText(item: PathConfig): string {
+    return `${item.name} (${item.root})`;
+  }
+
+  onChooseItem(item: PathConfig): void {
     this.onPick(item);
   }
 }

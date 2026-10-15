@@ -13,17 +13,17 @@ export function tagList(value: unknown): string[] {
 }
 
 /**
- * Vom Plugin verwaltete Tags: "schule/<fach>" und "<fach>/<thema>".
- * Alle Tags unter "schule/" und unter einem bekannten Fach-Slug gelten als verwaltet
+ * Vom Plugin verwaltete Tags: "<präfix>/<kategorie>" und "<kategorie>/<thema>" (Präfix z. B. "schule").
+ * Alle Tags unter dem Präfix und unter einem bekannten Kategorie-Slug gelten als verwaltet
  * und werden ersetzt; alle anderen Tags bleiben unverändert erhalten.
  */
-export function deriveTags(existing: unknown, fach: Fach, themen: string[], allFaecher: Fach[]): string[] {
-  const managedPrefixes = ["schule/", ...allFaecher.map((f) => `${f.tag}/`)];
+export function deriveTags(existing: unknown, fach: Fach, themen: string[], allFaecher: Fach[], prefix = "schule"): string[] {
+  const managedPrefixes = [`${prefix}/`, ...allFaecher.map((f) => `${f.tag}/`)];
   const kept = tagList(existing).filter((t) => {
     const lower = t.toLowerCase();
     return !managedPrefixes.some((p) => lower.startsWith(p));
   });
-  const managed = [`schule/${fach.tag}`];
+  const managed = [`${prefix}/${fach.tag}`];
   for (const thema of themen) {
     const slug = tagSlug(thema);
     if (slug) managed.push(`${fach.tag}/${slug}`);
