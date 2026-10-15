@@ -317,3 +317,95 @@ views:
       - property: datum
         direction: DESC
 `;
+
+/** Zusatz-Ansicht für Thema.base: Begriffe/Personen, deren "themen" diesen Hub enthält. */
+export const BEGRIFFE_VIEW_THEMA = `  - type: table
+    name: Begriffe
+    filters:
+      and:
+        - list(note.themen).contains(this.file.asLink())
+        - or:
+            - typ == "begriff"
+            - typ == "person"
+    order:
+      - file.name
+      - typ
+      - themen
+    sort:
+      - property: file.name
+        direction: ASC
+`;
+
+/** Zusatz-Ansicht für Fach.base/Projekt.base: Begriffe/Personen mit dieser Kategorie in "kategorien". */
+export const BEGRIFFE_VIEW_KATEGORIE = `  - type: table
+    name: Begriffe
+    filters:
+      and:
+        - list(note.kategorien).contains(this.file.asLink())
+        - or:
+            - typ == "begriff"
+            - typ == "person"
+    order:
+      - file.name
+      - typ
+      - themen
+    sort:
+      - property: file.name
+        direction: ASC
+`;
+
+/**
+ * Thema.base um die Ansicht „Begriffe“ erweitern. Der globale Filter typ == "tagesnote" würde Begriffe
+ * ausblenden – er wandert deshalb in die vorhandenen Ansichten, global bleibt file.ext == "md".
+ */
+export function addBegriffeToThemaBase(text: string): string {
+  if (text.includes("name: Begriffe\n")) return text;
+  let out = text.replace(/(filters:\n  and:\n)    - typ == "tagesnote"\n(views:)/, '$1    - file.ext == "md"\n$2');
+  if (out !== text) {
+    out = out.replace(/^( {8}- list\(note\.themen\)\.contains\(this\.file\.asLink\(\)\)\n)/gm, '$1        - typ == "tagesnote"\n');
+  }
+  return out.replace(/\s*$/, "\n") + BEGRIFFE_VIEW_THEMA;
+}
+
+/** Kategorie-Base um „Begriffe“ erweitern (Ansichten filtern dort schon selbst nach typ). */
+export function addBegriffeToKategorieBase(text: string): string {
+  if (text.includes("name: Begriffe\n")) return text;
+  return text.replace(/\s*$/, "\n") + BEGRIFFE_VIEW_KATEGORIE;
+}
+
+/** Inbox: Notes ohne ein- und ausgehende Links (außer TaskNotes, Templates, Bases). */
+export const DEFAULT_INBOX_BASE = `# Verwaiste Notes zum Durchsehen – nichts wird automatisch gelöscht.
+filters:
+  and:
+    - file.ext == "md"
+    - '!file.inFolder("TaskNotes")'
+    - '!file.inFolder("02-Ressourcen/02-3Templates")'
+views:
+  - type: table
+    name: Verwaist
+    filters:
+      and:
+        - file.backlinks.length == 0
+        - file.links.length == 0
+    order:
+      - file.name
+      - file.folder
+      - file.mtime
+    sort:
+      - property: file.mtime
+        direction: DESC
+  - type: table
+    name: Ohne Backlinks
+    filters:
+      and:
+        - file.backlinks.length == 0
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - file.mtime
+    sort:
+      - property: file.name
+        direction: ASC
+`;

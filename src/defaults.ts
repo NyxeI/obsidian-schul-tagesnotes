@@ -22,6 +22,10 @@ export interface SchulSettings {
   halbjahre: Halbjahr[];
   journal: JournalConfig;
   tasks: TaskConfig;
+  /** Begriffe/Personen, die nicht automatisch verlinkt werden. */
+  begriffeAusschluss: string[];
+  /** Base mit der Ansicht „Verwaist“ (Notes ohne Links). */
+  inboxBasePath: string;
   autoSort: boolean;
   autoCreateHubs: boolean;
 }
@@ -101,6 +105,8 @@ export const DEFAULT_SETTINGS: SchulSettings = {
     tagPrefix: "journal",
   },
   tasks: { folder: "TaskNotes/Tasks", tag: "task", quellen: ["01-Schule/AufgabenFiles", "01-Schule/Hausaufgaben oder To - Do.md"] },
+  begriffeAusschluss: [],
+  inboxBasePath: "Inbox.base",
   autoSort: true,
   autoCreateHubs: true,
 };
@@ -143,6 +149,8 @@ export function mergeSettings(saved: Record<string, unknown> | null): SchulSetti
   if (Array.isArray(saved.halbjahre)) s.halbjahre = saved.halbjahre as SchulSettings["halbjahre"];
   if (saved.journal) s.journal = { ...s.journal, ...(saved.journal as object) };
   if (saved.tasks) s.tasks = { ...s.tasks, ...(saved.tasks as object) };
+  if (Array.isArray(saved.begriffeAusschluss)) s.begriffeAusschluss = saved.begriffeAusschluss as string[];
+  if (typeof saved.inboxBasePath === "string") s.inboxBasePath = saved.inboxBasePath;
   if (typeof saved.autoSort === "boolean") s.autoSort = saved.autoSort;
   if (typeof saved.autoCreateHubs === "boolean") s.autoCreateHubs = saved.autoCreateHubs;
   return s;

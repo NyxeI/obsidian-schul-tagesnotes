@@ -4,12 +4,13 @@ import type { Fach, PathConfig } from "./config.ts";
 import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type KategorieWahl, type ThemaChoice } from "./modals";
 import { Journal } from "./journal-apply.ts";
 import { resultLine, syncTasks } from "./tasks-apply.ts";
+import { applyBegriffe, planBegriffe } from "./begriffe-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
 import { collectThemen } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
-import { DEFAULT_HUB_TEMPLATE, DEFAULT_JOURNAL_BASE, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
+import { DEFAULT_HUB_TEMPLATE, DEFAULT_INBOX_BASE, DEFAULT_JOURNAL_BASE, addBegriffeToKategorieBase, addBegriffeToThemaBase, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
@@ -154,6 +155,26 @@ export default class SchulTagesnotesPlugin extends Plugin {
               void this.journal
                 .linkAllTasks(this.settings.tasks.quellen, false)
                 .then((x) => new Notice(`${x.files} Notes: ${resultLine(x)}`, 10000)),
+          ).open(),
+        ),
+    });
+
+    // ---------- Begriffe ----------
+    this.addCommand({
+      id: "begriffe-verlinken",
+      name: "Begriffe & Personen verlinken … (Ressourcen-Properties, Themen, Links in Notes)",
+      callback: () =>
+        void planBegriffe(this.app, this.settings, this.settings.begriffeAusschluss).then((plan) =>
+          new ConfirmModal(
+            this.app,
+            "Begriffe & Personen verlinken?",
+            `${plan.terms} Begriffe/Personen, ${plan.themen.size} davon kommen vor: ${plan.links} Links in ${plan.mentions.size} Hubs/Tagesnotes ` +
+              "(je Note das erste Vorkommen). Alle Ressourcen-Notes bekommen typ und Tag; Begriffe bekommen themen/kategorien. Vorher ein Backup anlegen!",
+            () =>
+              void applyBegriffe(this.app, this.settings, this.settings.begriffeAusschluss).then((r) => {
+                this.begriffeResult = r;
+                new Notice(`Begriffe: ${r.ressourcen} Ressourcen, ${r.begriffe} Begriffe verknüpft, ${r.links} Links, ${r.errors.length} Fehler.`, 10000);
+              }),
           ).open(),
         ),
     });
@@ -310,6 +331,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
   }
 
   journalResult: unknown = null;
+  begriffeResult: unknown = null;
 
   async runJournalMigration(): Promise<void> {
     const notice = new Notice("Journal-Migration läuft …", 0);
@@ -370,10 +392,11 @@ export default class SchulTagesnotesPlugin extends Plugin {
       const tagesnote = cfg.zeitraum === "halbjahr" ? DEFAULT_TAGESNOTE_TEMPLATE : DEFAULT_TAGESNOTE_TEMPLATE.replace(/^halbjahr:.*\n/m, "");
       await write(cfg.tagesnoteTemplate, fixed(tagesnote));
       await write(cfg.hubTemplate, fixed(DEFAULT_HUB_TEMPLATE));
-      await write(cfg.themaBasePath, DEFAULT_THEMA_BASE);
-      await write(cfg.kategorieBasePath, kategorieBase(cfg.property, cfg.zeitraum));
+      await write(cfg.themaBasePath, addBegriffeToThemaBase(DEFAULT_THEMA_BASE));
+      await write(cfg.kategorieBasePath, addBegriffeToKategorieBase(kategorieBase(cfg.property, cfg.zeitraum)));
     }
     await write(this.settings.journal.basePath, DEFAULT_JOURNAL_BASE);
+    await write(this.settings.inboxBasePath, DEFAULT_INBOX_BASE);
     new Notice(created.length ? `Angelegt: ${created.join(", ")}` : "Alles schon vorhanden.");
   }
 }

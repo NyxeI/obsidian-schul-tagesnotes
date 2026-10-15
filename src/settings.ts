@@ -66,6 +66,20 @@ export class SchulSettingTab extends PluginSettingTab {
         });
       });
 
+    // ---------- Begriffe ----------
+    new Setting(containerEl).setName("Begriffe & Personen").setHeading();
+    new Setting(containerEl)
+      .setName("Nicht verlinken")
+      .setDesc("Begriffe/Personen (Note-Name), die beim automatischen Verlinken übersprungen werden. Einer pro Zeile.")
+      .addTextArea((t) => {
+        t.inputEl.rows = 4;
+        t.setValue(s.begriffeAusschluss.join("\n")).onChange(async (v) => {
+          s.begriffeAusschluss = v.split("\n").map((x) => x.trim()).filter(Boolean);
+          await save();
+        });
+      });
+    this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
+
     // ---------- Aufgaben ----------
     new Setting(containerEl).setName("Aufgaben (TaskNotes)").setHeading();
     this.text(containerEl, "Ordner für Aufgaben", "Wie in den TaskNotes-Einstellungen.", s.tasks.folder, (v) => (s.tasks.folder = v), save);
