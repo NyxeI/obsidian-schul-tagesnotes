@@ -1,0 +1,14 @@
+# npm
+node_modules
+
+# Build-Ausgabe (wird ans GitHub-Release angehängt)
+main.js
+*.js.map
+
+# Plugin-Einstellungen aus dem Vault
+data.json
+
+# Editoren / OS
+.vscode
+.idea
+.DS_Store
