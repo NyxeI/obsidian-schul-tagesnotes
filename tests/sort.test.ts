@@ -14,9 +14,9 @@ test("Tagesnote wird nach Fach/Halbjahr/Thema verschoben, Tags + Halbjahr gesetz
   const { app, sorter } = setup();
   const f = app.addNote("Neue Notiz.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: ["[[Geraden]]"], tags: ["Abi_Relevant"] });
   assert.equal(await sorter.sortFile(f as any), "moved");
-  assert.equal(f.path, "01-Schule/Mathe/12-1/Geraden/2026-10-15 Mathe.md");
+  assert.equal(f.path, "01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe.md");
   assert.deepEqual(f.frontmatter!.tags, ["schule/mathe", "mathe/geraden", "Abi_Relevant"]);
-  assert.equal(f.frontmatter!.halbjahr, "12-1");
+  assert.equal(f.frontmatter!.halbjahr, "13-1");
   const hub = app.vault.getAbstractFileByPath("01-Schule/Mathe/_Themen/Geraden.md") as TFile;
   assert.ok(hub, "Hub fehlt");
   assert.equal(hub.frontmatter!.typ, "thema");
@@ -32,7 +32,7 @@ test("Themenwechsel verschiebt in den neuen Themenordner und tauscht den Thema-T
   await sorter.sortFile(f as any);
   f.frontmatter!.themen = ["[[Ebenen]]", "[[Geraden]]"];
   assert.equal(await sorter.sortFile(f as any), "moved");
-  assert.equal(f.path, "01-Schule/Mathe/12-1/Ebenen/2026-10-15 Mathe.md");
+  assert.equal(f.path, "01-Schule/Mathe/13-1/Ebenen/2026-10-15 Mathe.md");
   assert.deepEqual(f.frontmatter!.tags, ["schule/mathe", "mathe/ebenen", "mathe/geraden"]);
 });
 
@@ -46,7 +46,7 @@ test("Vorhandener Hub an anderer Stelle wird wiederverwendet, nicht doppelt ange
 
 test("Konflikt: Zieldatei existiert schon → nicht verschieben", async () => {
   const { app, sorter } = setup();
-  app.addNote("01-Schule/Mathe/12-1/_Allgemein/2026-10-15 Mathe.md", { typ: "tagesnote" });
+  app.addNote("01-Schule/Mathe/13-1/_Allgemein/2026-10-15 Mathe.md", { typ: "tagesnote" });
   const f = app.addNote("y.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: [] });
   assert.equal(await sorter.sortFile(f as any), "conflict");
   assert.equal(f.path, "y.md");
@@ -72,7 +72,7 @@ test("Themen-Hub: Tags werden aus Fach und eigenem Namen abgeleitet, Hub bleibt 
 
 test("Leere alte Themen-/Halbjahrordner werden entfernt, Fachordner bleibt", async () => {
   const { app, sorter } = setup();
-  for (const d of ["01-Schule", "01-Schule/Mathe", "01-Schule/Mathe/12-1", "01-Schule/Mathe/12-1/Geraden", "01-Schule/Mathe/_Ohne Halbjahr", "01-Schule/Mathe/_Ohne Halbjahr/Alt"])
+  for (const d of ["01-Schule", "01-Schule/Mathe", "01-Schule/Mathe/13-1", "01-Schule/Mathe/13-1/Geraden", "01-Schule/Mathe/_Ohne Halbjahr", "01-Schule/Mathe/_Ohne Halbjahr/Alt"])
     await app.vault.createFolder(d);
   const f = app.addNote("01-Schule/Mathe/_Ohne Halbjahr/Alt/x.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: ["[[Geraden]]"] });
   app.addNote("01-Schule/Mathe/_Themen/Geraden.md", { typ: "thema", fach: "[[Mathe]]" });

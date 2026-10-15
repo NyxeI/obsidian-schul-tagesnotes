@@ -15,7 +15,7 @@ const vault: NoteIn[] = [
   note("01-Schule/Deutsch/Woyzeck.md", "W\n---\n02-10-2026\nWoyzeck-Stunde"),
   note("01-Schule/Deutsch/Deutsch.md", "![[Fach.base]]"),
   note("01-Schule/Hausaufgaben oder To - Do.md", "## 07.10.25\nHA"),
-  note("01-Schule/Mathe/12-1/Geraden/2026-10-15 Mathe.md", "---\n", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15" }),
+  note("01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe.md", "---\n", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15" }),
 ];
 const files = [
   "01-Schule/Mathe/Stochastik/attachments/baum.png",
@@ -52,19 +52,19 @@ test("Datierte Abschnitte werden zu Tagesnotes, Vorspann bleibt im Hub", () => {
   const geraden = plan.themen.find((t) => t.from.endsWith("Mathe/Geraden.md"))!;
   assert.equal(geraden.newBody, "");
   const paths = plan.tagesnotes.map((t) => t.path);
-  assert.ok(paths.includes("01-Schule/Mathe/12-1/Geraden/2026-09-16 Mathe.md"));
-  assert.ok(paths.includes("01-Schule/Mathe/12-1/Kombinatorik/2026-10-02 Mathe.md"));
-  assert.ok(paths.includes("01-Schule/Deutsch/12-1/Woyzeck/2026-10-02 Deutsch.md"));
+  assert.ok(paths.includes("01-Schule/Mathe/13-1/Geraden/2026-09-16 Mathe.md"));
+  assert.ok(paths.includes("01-Schule/Mathe/13-1/Kombinatorik/2026-10-02 Mathe.md"));
+  assert.ok(paths.includes("01-Schule/Deutsch/13-1/Woyzeck/2026-10-02 Deutsch.md"));
   const t = plan.tagesnotes.find((x) => x.path.endsWith("2026-10-09 Mathe.md"))!;
   const content = renderTagesnote(t, cfg.faecher.find((f) => f.name === "Mathe")!, cfg.faecher);
-  assert.match(content, /typ: tagesnote\nfach: "\[\[Mathe\]\]"\ndatum: 2026-10-09\nhalbjahr: 12-1\nthemen:\n  - "\[\[Kombinatorik\]\]"\ntags:\n  - schule\/mathe\n  - mathe\/kombinatorik\nmigriert: true/);
+  assert.match(content, /typ: tagesnote\nfach: "\[\[Mathe\]\]"\ndatum: 2026-10-09\nhalbjahr: 13-1\nthemen:\n  - "\[\[Kombinatorik\]\]"\ntags:\n  - schule\/mathe\n  - mathe\/kombinatorik\nmigriert: true/);
   assert.match(content, /## Kombinatorik\n\nMehr/);
 });
 
 test("Übersprungen und unangetastet", () => {
   const reasons = Object.fromEntries(plan.skipped.map((s) => [s.path, s.reason]));
   assert.equal(reasons["01-Schule/Mathe/Bild.excalidraw.md"], "Excalidraw-Zeichnung");
-  assert.equal(reasons["01-Schule/Mathe/12-1/Geraden/2026-10-15 Mathe.md"], "bereits Tagesnote");
+  assert.equal(reasons["01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe.md"], "bereits Tagesnote");
   assert.ok(plan.untouched.includes("01-Schule/Hausaufgaben oder To - Do.md"));
 });
 

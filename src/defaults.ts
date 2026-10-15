@@ -34,13 +34,13 @@ export const DEFAULT_SETTINGS: SchulSettings = {
       "Wirtschaft",
     ].join("\n"),
   ),
-  // Vorläufige Zeiträume (Bayern) – in den Einstellungen anpassen.
+  // Q12 = Schuljahr 2025/26, Q13 = 2026/27 (Bayern, G9) – in den Einstellungen anpassbar.
   halbjahre: parseHalbjahre(
     [
-      "11-1 | 2025-09-16 | 2026-02-13",
-      "11-2 | 2026-02-14 | 2026-09-07",
-      "12-1 | 2026-09-08 | 2027-02-12",
-      "12-2 | 2027-02-13 | 2027-09-13",
+      "12-1 | 2025-09-16 | 2026-02-13",
+      "12-2 | 2026-02-14 | 2026-09-07",
+      "13-1 | 2026-09-08 | 2027-02-12",
+      "13-2 | 2027-02-13 | 2027-09-13",
     ].join("\n"),
   ),
   tagesnoteTemplate: "02-Ressourcen/02-3Templates/Tagesnote.md",
