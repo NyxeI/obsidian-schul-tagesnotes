@@ -27,6 +27,8 @@ export async function readTemplate(app: App, path: string, fallback: string): Pr
 export class Sorter {
   private timers = new Map<string, number>();
   private busy = new Set<string>();
+  /** Während der Migration keine automatische Sortierung. */
+  paused = false;
 
   private app: App;
   private settings: () => SchulSettings;
@@ -37,6 +39,7 @@ export class Sorter {
   }
 
   schedule(file: TFile): void {
+    if (this.paused) return;
     const old = this.timers.get(file.path);
     if (old !== undefined) window.clearTimeout(old);
     this.timers.set(

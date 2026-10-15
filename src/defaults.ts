@@ -30,7 +30,7 @@ export const DEFAULT_SETTINGS: SchulSettings = {
       "Kunst",
       "Mathe",
       "Physik",
-      "Politik und Gesellschaft | Politik und Gesellschaft | politik",
+      "PuG | Politik und Gesellschaft | politik",
       "Wirtschaft",
     ].join("\n"),
   ),

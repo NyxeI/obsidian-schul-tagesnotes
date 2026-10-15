@@ -1,4 +1,5 @@
-import { MarkdownView, Notice, Plugin, TFile, normalizePath } from "obsidian";
+import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath } from "obsidian";
+import { applyMigration, type MigrationResult } from "./migration/apply.ts";
 import type { Fach } from "./config.ts";
 import { FachModal, ThemaModal, type ThemaChoice } from "./modals";
 import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
@@ -9,6 +10,8 @@ import { DEFAULT_FACH_BASE, DEFAULT_HUB_TEMPLATE, DEFAULT_THEMA_BASE, DEFAULT_TA
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
+  /** Ergebnis der letzten Migration (für Protokoll und Prüfung per CLI). */
+  lastMigration: MigrationResult | null = null;
   private sorter = new Sorter(this.app, () => this.settings);
 
   async onload(): Promise<void> {
@@ -61,6 +64,23 @@ export default class SchulTagesnotesPlugin extends Plugin {
       id: "vorlagen-anlegen",
       name: "Templates und Base im Vault anlegen",
       callback: () => void this.writeDefaults(),
+    });
+
+    this.addCommand({
+      id: "migration-ausfuehren",
+      name: "Migration ausführen … (alte Struktur → Hubs + Tagesnotes)",
+      callback: () => {
+        if (Platform.isMobile) {
+          new Notice("Die Migration ist nur am Desktop möglich.");
+          return;
+        }
+        new ConfirmModal(
+          this.app,
+          "Migration ausführen?",
+          "Alle Notes der konfigurierten Fächer werden nach _Themen verschoben, datierte Abschnitte werden zu Tagesnotes, Anhänge wandern nach <Fach>/attachments. Vorher ein Backup bzw. einen Git-Commit anlegen!",
+          () => void this.runMigration(),
+        ).open();
+      },
     });
 
     this.app.workspace.onLayoutReady(() => {
@@ -166,6 +186,22 @@ export default class SchulTagesnotesPlugin extends Plugin {
     }
   }
 
+  async runMigration(): Promise<MigrationResult> {
+    const notice = new Notice("Migration läuft …", 0);
+    this.sorter.paused = true;
+    try {
+      const result = await applyMigration(this.app, this.settings, (m) => notice.setMessage(`Migration: ${m}`));
+      this.lastMigration = result;
+      notice.setMessage(
+        `Migration fertig: ${result.errors.length} Fehler, ${result.newlyUnresolved.length} neu unaufgelöste Links.`,
+      );
+      window.setTimeout(() => notice.hide(), 10000);
+      return result;
+    } finally {
+      this.sorter.paused = false;
+    }
+  }
+
   private async sortAll(): Promise<void> {
     const counts: Partial<Record<SortResult, number>> = {};
     for (const file of this.app.vault.getMarkdownFiles()) {
@@ -208,4 +244,30 @@ function resultText(r: SortResult): string {
     skipped: "Keine Tagesnote (typ: tagesnote mit fach und datum fehlt).",
     conflict: "Zieldatei existiert schon – nicht verschoben.",
   }[r];
+}
+
+class ConfirmModal extends Modal {
+  constructor(app: import("obsidian").App, private heading: string, private text: string, private onConfirm: () => void) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText(this.heading);
+    this.contentEl.createEl("p", { text: this.text });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Abbrechen").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Ausführen")
+          .setWarning()
+          .onClick(() => {
+            this.close();
+            this.onConfirm();
+          }),
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
 }
