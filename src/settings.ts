@@ -95,6 +95,7 @@ export class SchulSettingTab extends PluginSettingTab {
         });
       });
     this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
+    this.text(containerEl, "Tages-Base", "Tagesübersicht für Daily Notes (Calendar): Tagesnotes und Journal vom selben Datum.", s.tagBasePath, (v) => (s.tagBasePath = v), save);
 
     // ---------- Aufgaben ----------
     new Setting(containerEl).setName("Aufgaben (TaskNotes)").setHeading();

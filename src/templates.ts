@@ -484,3 +484,45 @@ export function addViews(text: string, views: [string, string][]): string {
   }
   return out;
 }
+
+/**
+ * Tagesübersicht für die Daily Note (Calendar-Plugin): alle Tagesnotes und Journal-Notes vom Datum der Daily Note.
+ * `format` = Datumsformat der Daily Notes (moment), damit der Dateiname mit `datum` verglichen werden kann.
+ */
+export function tagBase(format: string): string {
+  const f = format.replace(/"/g, '\\"');
+  return `# Tagesübersicht: wird in der Daily Note eingebettet (![[Tag.base]]) und zeigt alles vom selben Datum.
+filters:
+  and:
+    - file.ext == "md"
+    - date(datum).format("${f}") == this.file.name
+views:
+  - type: table
+    name: Heute
+    filters:
+      or:
+        - typ == "tagesnote"
+        - typ == "journal"
+    groupBy:
+      property: typ
+      direction: DESC
+    order:
+      - file.name
+      - fach
+      - projekt
+      - themen
+      - kategorie
+      - uhrzeit
+    sort:
+      - property: uhrzeit
+        direction: ASC
+      - property: file.name
+        direction: ASC
+`;
+}
+
+/** Einbettung der Tagesübersicht ans Ende einer Daily-Note-Vorlage anhängen (einmalig). */
+export function addTagBaseEmbed(template: string, baseName: string): string {
+  if (template.includes(`![[${baseName}`)) return template;
+  return `${template.replace(/\s*$/, "")}\n\n## Heute\n![[${baseName}]]\n`;
+}

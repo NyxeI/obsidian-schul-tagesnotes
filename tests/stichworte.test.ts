@@ -44,3 +44,11 @@ test("Unterthemen aus ## und ###", () => {
   assert.deepEqual(extractUnterthemen(c), ["Lagebeziehungen von Geraden", "Punktprobe", "Vektoren im Raum"]);
   assert.deepEqual(extractUnterthemen("## Woyzeck\n## Szene", ["Woyzeck"]), ["Szene"]);
 });
+
+test("Tagesübersicht: Base mit Daily-Note-Format, Einbettung nur einmal", async () => {
+  const { tagBase, addTagBaseEmbed } = await import("../src/templates.ts");
+  assert.match(tagBase("DD-MM-YYYY"), /date\(datum\)\.format\("DD-MM-YYYY"\) == this\.file\.name/);
+  const once = addTagBaseEmbed("---\ntags: []\n---\n", "Tag.base");
+  assert.equal(once, "---\ntags: []\n---\n\n## Heute\n![[Tag.base]]\n");
+  assert.equal(addTagBaseEmbed(once, "Tag.base"), once);
+});

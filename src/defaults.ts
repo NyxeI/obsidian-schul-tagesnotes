@@ -29,6 +29,8 @@ export interface SchulSettings {
   tagZuordnung: TagZuordnung;
   /** Base mit der Ansicht „Verwaist“ (Notes ohne Links). */
   inboxBasePath: string;
+  /** Tagesübersicht für Daily Notes / Calendar */
+  tagBasePath: string;
   autoSort: boolean;
   autoCreateHubs: boolean;
 }
@@ -111,6 +113,7 @@ export const DEFAULT_SETTINGS: SchulSettings = {
   begriffeAusschluss: [],
   tagZuordnung: { ...DEFAULT_TAG_ZUORDNUNG },
   inboxBasePath: "Inbox.base",
+  tagBasePath: "05-Journal/_Bases/Tag.base",
   autoSort: true,
   autoCreateHubs: true,
 };
@@ -156,6 +159,7 @@ export function mergeSettings(saved: Record<string, unknown> | null): SchulSetti
   if (Array.isArray(saved.begriffeAusschluss)) s.begriffeAusschluss = saved.begriffeAusschluss as string[];
   if (saved.tagZuordnung && typeof saved.tagZuordnung === "object") s.tagZuordnung = saved.tagZuordnung as TagZuordnung;
   if (typeof saved.inboxBasePath === "string") s.inboxBasePath = saved.inboxBasePath;
+  if (typeof saved.tagBasePath === "string") s.tagBasePath = saved.tagBasePath;
   if (typeof saved.autoSort === "boolean") s.autoSort = saved.autoSort;
   if (typeof saved.autoCreateHubs === "boolean") s.autoCreateHubs = saved.autoCreateHubs;
   return s;

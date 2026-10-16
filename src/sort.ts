@@ -1,6 +1,6 @@
 import { type App, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type { Fach, PathConfig } from "./config.ts";
-import { computeTarget, findFach, hubFolderPath, linkTarget, safeName } from "./paths.ts";
+import { attachmentTarget, computeTarget, findFach, freePath, hubFolderPath, linkTarget, safeName, zeitraumFor } from "./paths.ts";
 import { deriveTags, sameList } from "./tags.ts";
 import { DEFAULT_HUB_TEMPLATE, renderTemplate } from "./templates.ts";
 import { bereichOf, type SchulSettings } from "./defaults.ts";
@@ -111,10 +111,32 @@ export class Sorter {
         if (oldFolder) await this.removeEmptyFolders(oldFolder, `${cfg.root}/${target.fach.folder}`);
         result = "moved";
       }
+      if (await this.collectAttachments(file, cfg, target.fach, zeitraumFor(target.datum, cfg))) {
+        if (result === "unchanged") result = "updated";
+      }
       return result;
     } finally {
       this.busy.delete(file.path);
     }
+  }
+
+  /** Anhänge aus `<Thema>/attachments/` in den Sammelordner `<Kat>/attachments/<Zeitraum>/` holen. */
+  async collectAttachments(file: TFile, cfg: PathConfig, fach: Fach, zeitraum: string | null): Promise<boolean> {
+    const links = this.app.metadataCache.resolvedLinks?.[file.path] ?? {};
+    let moved = false;
+    for (const linked of Object.keys(links)) {
+      const att = this.app.vault.getAbstractFileByPath(linked);
+      if (!(att instanceof TFile)) continue;
+      const wanted = attachmentTarget(att.path, fach, zeitraum, cfg);
+      if (!wanted) continue;
+      const dest = freePath(wanted, (p) => this.app.vault.getAbstractFileByPath(p) !== null);
+      const oldFolder = att.parent;
+      await ensureFolder(this.app, dest.slice(0, dest.lastIndexOf("/")));
+      await this.app.fileManager.renameFile(att, dest);
+      if (oldFolder) await this.removeEmptyFolders(oldFolder, `${cfg.root}/${fach.folder}`);
+      moved = true;
+    }
+    return moved;
   }
 
   /** Entfernt leer gewordene Ordner unterhalb von `stopAt` (nie `stopAt` selbst). */

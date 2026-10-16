@@ -90,3 +90,21 @@ test("Unterthemen werden aus den Überschriften nachgeführt", async () => {
   await sorter.sortFile(f as any);
   assert.equal(f.frontmatter!.unterthemen, undefined);
 });
+
+test("Anhänge aus <Thema>/attachments wandern in <Fach>/attachments/<Halbjahr>, leere Ordner verschwinden", async () => {
+  const { app, sorter } = setup();
+  for (const d of ["01-Schule", "01-Schule/Mathe", "01-Schule/Mathe/13-1", "01-Schule/Mathe/13-1/Geraden", "01-Schule/Mathe/13-1/Geraden/attachments"]) await app.vault.createFolder(d);
+  const f = app.addNote("01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: ["[[Geraden]]"], tags: ["schule/mathe", "mathe/geraden"], halbjahr: "13-1" });
+  app.addNote("01-Schule/Mathe/_Themen/Geraden.md", { typ: "thema", fach: "[[Mathe]]" });
+  app.addNote("01-Schule/Mathe/13-1/Geraden/attachments/bild.png", null);
+  // Gleichnamiger Anhang liegt schon im Sammelordner → neuer Name
+  for (const d of ["01-Schule/Mathe/attachments", "01-Schule/Mathe/attachments/13-1"]) await app.vault.createFolder(d);
+  app.addNote("01-Schule/Mathe/attachments/13-1/bild.png", null);
+  app.metadataCache.resolvedLinks[f.path] = { "01-Schule/Mathe/13-1/Geraden/attachments/bild.png": 1, "01-Schule/Mathe/_Themen/Geraden.md": 1 };
+  assert.equal(await sorter.sortFile(f as any), "updated");
+  assert.ok(app.vault.getAbstractFileByPath("01-Schule/Mathe/attachments/13-1/bild 1.png"));
+  assert.equal(app.vault.getAbstractFileByPath("01-Schule/Mathe/13-1/Geraden/attachments"), null);
+  // Thema-Ordner bleibt, weil die Tagesnote noch darin liegt
+  assert.ok(app.vault.getAbstractFileByPath("01-Schule/Mathe/13-1/Geraden"));
+  assert.equal(await sorter.sortFile(f as any), "unchanged");
+});

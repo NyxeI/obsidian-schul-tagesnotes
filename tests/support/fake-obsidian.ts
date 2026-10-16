@@ -102,6 +102,7 @@ export class FakeApp {
   };
 
   metadataCache = {
+    resolvedLinks: {} as Record<string, Record<string, number>>,
     getFileCache: (f: TFile) => (f.frontmatter ? { frontmatter: f.frontmatter } : null),
     getFirstLinkpathDest: (name: string) =>
       this.vault.getMarkdownFiles().find((f) => f.basename === name) ?? null,
@@ -121,6 +122,18 @@ export class FakeApp {
       if (parent && !(this.files.get(parent) instanceof TFolder)) throw new Error(`no folder: ${parent}`);
       this.files.delete(f.path);
       this.renames.push([f.path, p]);
+      // Links wie Obsidian mitziehen
+      const rl = this.metadataCache.resolvedLinks;
+      if (rl[f.path]) {
+        rl[p] = rl[f.path];
+        delete rl[f.path];
+      }
+      for (const l of Object.values(rl)) {
+        if (f.path in l) {
+          l[p] = l[f.path];
+          delete l[f.path];
+        }
+      }
       f.path = p;
       this.files.set(p, f);
     },

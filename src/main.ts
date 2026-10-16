@@ -5,13 +5,15 @@ import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type Kategor
 import { Journal } from "./journal-apply.ts";
 import { resultLine, syncTasks } from "./tasks-apply.ts";
 import { applyBegriffe, planBegriffe } from "./begriffe-apply.ts";
+import { runHubLinks } from "./hublinks-apply.ts";
+import { kapitelView } from "./hublinks.ts";
 import { runStichworte } from "./stichworte-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
 import { collectThemen } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
-import { DEFAULT_HUB_TEMPLATE, DEFAULT_INBOX_BASE, DEFAULT_JOURNAL_BASE, addBegriffeToKategorieBase, addBegriffeToThemaBase, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
+import { addTagBaseEmbed, addViews, tagBase, DEFAULT_HUB_TEMPLATE, DEFAULT_INBOX_BASE, DEFAULT_JOURNAL_BASE, addBegriffeToKategorieBase, addBegriffeToThemaBase, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
@@ -178,6 +180,27 @@ export default class SchulTagesnotesPlugin extends Plugin {
                 new Notice(`Tags: ${x.notes} Notes, ${x.inlineTags} Inline-Tags, ${x.errors.length} Fehler.`, 10000);
               }),
           ).open(),
+        ),
+    });
+
+    // ---------- Linklisten in Kategorie-Hubs ----------
+    this.addCommand({
+      id: "hub-linklisten-ersetzen",
+      name: "Linklisten in Fach-Hubs durch Base-Ansicht ersetzen …",
+      callback: () =>
+        void runHubLinks(this.app, this.settings, true).then((r) =>
+          r.hubs.length === 0
+            ? new Notice("Keine Linklisten mehr umzustellen.")
+            : new ConfirmModal(
+                this.app,
+                "Linklisten ersetzen?",
+                `${r.hubs.length} Hubs: Die Linkliste oben wird zu einem eingeklappten Callout „Alte Linkliste“, darüber kommt die Ansicht „Themen nach Kapitel“. ` +
+                  "Nichts wird gelöscht. Vorher ein Backup anlegen!",
+                () =>
+                  void runHubLinks(this.app, this.settings, false).then((x) =>
+                    new Notice(`Linklisten: ${x.hubs.length} Hubs umgestellt, ${x.errors.length} Fehler.`, 10000),
+                  ),
+              ).open(),
         ),
     });
 
@@ -416,10 +439,21 @@ export default class SchulTagesnotesPlugin extends Plugin {
       await write(cfg.tagesnoteTemplate, fixed(tagesnote));
       await write(cfg.hubTemplate, fixed(DEFAULT_HUB_TEMPLATE));
       await write(cfg.themaBasePath, addBegriffeToThemaBase(DEFAULT_THEMA_BASE));
-      await write(cfg.kategorieBasePath, addBegriffeToKategorieBase(kategorieBase(cfg.property, cfg.zeitraum)));
+      await write(cfg.kategorieBasePath, addViews(addBegriffeToKategorieBase(kategorieBase(cfg.property, cfg.zeitraum)), [kapitelView(cfg.property)]));
     }
     await write(this.settings.journal.basePath, DEFAULT_JOURNAL_BASE);
     await write(this.settings.inboxBasePath, DEFAULT_INBOX_BASE);
+    // Calendar-Plugin öffnet Daily Notes → dort die Tagesübersicht einbetten
+    const daily = (this.app as any).internalPlugins?.getPluginById?.("daily-notes")?.instance?.options ?? {};
+    await write(this.settings.tagBasePath, tagBase(daily.format || "YYYY-MM-DD"));
+    if (daily.template) {
+      const tpl = this.app.vault.getAbstractFileByPath(normalizePath(daily.template.endsWith(".md") ? daily.template : `${daily.template}.md`));
+      const baseName = this.settings.tagBasePath.split("/").pop() ?? this.settings.tagBasePath;
+      if (tpl instanceof TFile && !(await this.app.vault.read(tpl)).includes(`![[${baseName}`)) {
+        await this.app.vault.process(tpl, (c) => addTagBaseEmbed(c, baseName));
+        created.push(`${tpl.path} (Tagesübersicht)`);
+      }
+    }
     new Notice(created.length ? `Angelegt: ${created.join(", ")}` : "Alles schon vorhanden.");
   }
 }

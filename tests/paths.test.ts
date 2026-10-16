@@ -116,3 +116,21 @@ test("Template-Platzhalter", () => {
   });
   assert.match(leer, /themen:\n  \[\]\n/);
 });
+
+test("attachmentTarget: nur Anhänge aus Tagesnote-Ordnern, Ziel <Kat>/attachments/<Zeitraum>", async () => {
+  const { attachmentTarget, freePath } = await import("../src/paths.ts");
+  const { pathConfig, DEFAULT_SETTINGS } = await import("../src/defaults.ts");
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const mathe = cfg.kategorien.find((k) => k.name === "Mathe")!;
+  assert.equal(attachmentTarget("01-Schule/Mathe/13-1/Geraden/attachments/a.png", mathe, "13-1", cfg), "01-Schule/Mathe/attachments/13-1/a.png");
+  assert.equal(attachmentTarget("01-Schule/Mathe/12-2/Geraden/attachments/a.png", mathe, "13-1", cfg), "01-Schule/Mathe/attachments/13-1/a.png");
+  assert.equal(attachmentTarget("01-Schule/Mathe/attachments/13-1/a.png", mathe, "13-1", cfg), null);
+  assert.equal(attachmentTarget("01-Schule/Mathe/_Themen/attachments/a.png", mathe, "13-1", cfg), null);
+  assert.equal(attachmentTarget("01-Schule/Physik/13-1/X/attachments/a.png", mathe, "13-1", cfg), null);
+  assert.equal(attachmentTarget("01-Schule/Mathe/13-1/Geraden/a.png", mathe, "13-1", cfg), null);
+  assert.equal(attachmentTarget("01-Schule/Mathe/13-1/Geraden/attachments/x.md", mathe, "13-1", cfg), null);
+  assert.equal(attachmentTarget("01-Schule/Mathe/13-1/Geraden/attachments/a.png", mathe, null, cfg), "01-Schule/Mathe/attachments/_Ohne Halbjahr/a.png");
+  const taken = new Set(["a.png", "a 1.png"]);
+  assert.equal(freePath("a.png", (p) => taken.has(p)), "a 2.png");
+  assert.equal(freePath("Makefile", () => false), "Makefile");
+});

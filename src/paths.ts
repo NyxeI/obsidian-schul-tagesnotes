@@ -109,3 +109,36 @@ export function today(now: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
+
+/** Sammelordner für Anhänge einer Kategorie und eines Zeitraums: <root>/<Kat>/attachments/<Zeitraum>. */
+export function attachmentFolder(fach: Fach, zeitraum: string | null, cfg: PathConfig): string {
+  return [cfg.root, fach.folder, "attachments", zeitraum ?? cfg.noHalbjahrFolder]
+    .map((p) => p.replace(/^\/+|\/+$/g, ""))
+    .filter(Boolean)
+    .join("/");
+}
+
+/**
+ * Zielpfad eines Anhangs, der neben einer Tagesnote in einem `attachments`-Ordner liegt
+ * (Obsidian-Einstellung `./attachments` legt sonst einen Ordner pro Thema an).
+ * null = bleibt liegen: liegt nicht unter dieser Kategorie, schon im Sammelordner, bei den Hubs oder ist eine Note.
+ */
+export function attachmentTarget(attPath: string, fach: Fach, zeitraum: string | null, cfg: PathConfig): string | null {
+  if (attPath.endsWith(".md")) return null;
+  const katPrefix = [cfg.root, fach.folder].map((p) => p.replace(/^\/+|\/+$/g, "")).filter(Boolean).join("/") + "/";
+  if (!attPath.startsWith(katPrefix)) return null;
+  const parts = attPath.slice(katPrefix.length).split("/");
+  if (parts.length < 3 || parts[0] === "attachments" || parts[0] === cfg.hubFolder) return null;
+  if (!parts.slice(1, -1).includes("attachments")) return null;
+  return `${attachmentFolder(fach, zeitraum, cfg)}/${parts[parts.length - 1]}`;
+}
+
+/** "bild.png" → "bild 1.png", "bild 2.png", … bis `exists` false liefert. */
+export function freePath(path: string, exists: (p: string) => boolean): string {
+  if (!exists(path)) return path;
+  const m = /^(.*?)(\.[^./]*)?$/.exec(path)!;
+  for (let i = 1; ; i++) {
+    const p = `${m[1]} ${i}${m[2] ?? ""}`;
+    if (!exists(p)) return p;
+  }
+}
