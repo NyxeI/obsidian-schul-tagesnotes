@@ -14,7 +14,7 @@
     "obsidian",
     "obsidian-plugin"
   ],
-  "author": "__ALIAS__",
+  "author": "Nyxel",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.0.0",

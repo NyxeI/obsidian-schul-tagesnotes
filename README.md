@@ -68,4 +68,4 @@ If you already have a vault organised by topic, read [docs/MIGRATION.md](docs/MI
 
 ## License
 
-[MIT](LICENSE) © __ALIAS__
+[MIT](LICENSE) © Nyxel
