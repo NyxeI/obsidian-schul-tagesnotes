@@ -16,6 +16,19 @@ export interface NoteInfo {
  * Ausgenommen: Tagesnotes, der Fach-Hub, Excalidraw-/Kanban-Dateien und Notes in attachments-Ordnern.
  */
 export function collectThemen(notes: NoteInfo[], fach: Fach, cfg: PathConfig): string[] {
+  return collectThemenInfo(notes, fach, cfg).map((t) => t.name);
+}
+
+/** Thema mit Angaben für die Auswahl: letzte Tagesnote (YYYY-MM-DD, "" = keine) und Anzahl Tagesnotes. */
+export interface ThemaInfo {
+  name: string;
+  zuletzt: string;
+  anzahl: number;
+}
+
+/** Wie `collectThemen`, aber mit letzter Benutzung und Anzahl der Tagesnotes je Thema. */
+export function collectThemenInfo(notes: NoteInfo[], fach: Fach, cfg: PathConfig): ThemaInfo[] {
+  const anzahl = new Map<string, number>();
   const prefix = `${cfg.root.replace(/\/+$/, "")}/${fach.folder}/`;
   const lastUsed = new Map<string, string>();
   const mtime = new Map<string, number>();
@@ -31,6 +44,7 @@ export function collectThemen(notes: NoteInfo[], fach: Fach, cfg: PathConfig): s
       if (!sameFach) continue;
       const datum = normalizeDate(fm.datum) ?? "";
       for (const t of linkList(fm.themen)) {
+        anzahl.set(t, (anzahl.get(t) ?? 0) + 1);
         if ((lastUsed.get(t) ?? "") < datum) lastUsed.set(t, datum);
         else note(t, 0);
       }
@@ -47,10 +61,42 @@ export function collectThemen(notes: NoteInfo[], fach: Fach, cfg: PathConfig): s
     note(n.basename, n.mtime);
   }
 
-  return [...lastUsed.keys()].sort((a, b) => {
-    const byUse = (lastUsed.get(b) ?? "").localeCompare(lastUsed.get(a) ?? "");
-    if (byUse) return byUse;
-    const byTime = (mtime.get(b) ?? 0) - (mtime.get(a) ?? 0);
-    return byTime || a.localeCompare(b, "de");
-  });
+  return [...lastUsed.keys()]
+    .sort((a, b) => {
+      const byUse = (lastUsed.get(b) ?? "").localeCompare(lastUsed.get(a) ?? "");
+      if (byUse) return byUse;
+      const byTime = (mtime.get(b) ?? 0) - (mtime.get(a) ?? 0);
+      return byTime || a.localeCompare(b, "de");
+    })
+    .map((name) => ({ name, zuletzt: lastUsed.get(name) ?? "", anzahl: anzahl.get(name) ?? 0 }));
+}
+
+/** Je Kategorie: letzte Tagesnote und Anzahl (für die Fachauswahl). Schlüssel = Kategorie-Name. */
+export function kategorieStats(notes: NoteInfo[], cfg: PathConfig): Map<string, { zuletzt: string; anzahl: number }> {
+  const out = new Map<string, { zuletzt: string; anzahl: number }>();
+  for (const n of notes) {
+    const fm = n.fm ?? {};
+    if (fm.typ !== "tagesnote") continue;
+    const fach = findFach(linkTarget(fm[cfg.property]), cfg.kategorien);
+    if (!fach) continue;
+    const datum = normalizeDate(fm.datum) ?? "";
+    const cur = out.get(fach.name) ?? { zuletzt: "", anzahl: 0 };
+    out.set(fach.name, { zuletzt: datum > cur.zuletzt ? datum : cur.zuletzt, anzahl: cur.anzahl + 1 });
+  }
+  return out;
+}
+
+/** Zuletzt benutzte Kategorien zuerst (nach Datum der letzten Tagesnote), unbenutzte danach in der bisherigen Reihenfolge. */
+export function sortByRecent<T>(items: T[], zuletzt: (item: T) => string): T[] {
+  return items
+    .map((item, i) => ({ item, i, z: zuletzt(item) }))
+    .sort((a, b) => b.z.localeCompare(a.z) || a.i - b.i)
+    .map((x) => x.item);
+}
+
+/** "2026-10-15" → "15.10." (gleiches Jahr wie `heute`) bzw. "15.10.25". */
+export function kurzDatum(datum: string, heute: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return "";
+  const [y, m, d] = datum.split("-");
+  return y === heute.slice(0, 4) ? `${d}.${m}.` : `${d}.${m}.${y.slice(2)}`;
 }

@@ -42,6 +42,8 @@ export interface BereichConfig {
   kategorieBasePath: string;
   /** Base für Themen-Hubs ({{base}} im Hub-Template). */
   themaBasePath: string;
+  /** Haupt-Hub des Bereichs (z. B. Schule.md) mit den Karten aller Kategorie-Hubs; leer = keiner. */
+  hubPath?: string;
 }
 
 /** Bereich + gemeinsame Halbjahre: alles, was Pfad- und Tag-Berechnung brauchen. */

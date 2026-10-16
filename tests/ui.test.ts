@@ -1,0 +1,83 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { planBereichHub, repairBrokenLinks } from "../src/bereichhub.ts";
+import { bereichBase, slimBase } from "../src/templates.ts";
+import { pluginBases } from "../src/bases.ts";
+import { DEFAULT_SETTINGS, mergeSettings } from "../src/defaults.ts";
+
+test("Kaputte Links „Name]]“ werden repariert, intakte bleiben", () => {
+  const r = repairBrokenLinks("\nChemie]] \n- Mathe]]\n[[Deutsch]]\nText mit [[Link]]\n![[bild.png|300]]\n");
+  assert.equal(r.content, "\n[[Chemie]] \n- [[Mathe]]\n[[Deutsch]]\nText mit [[Link]]\n![[bild.png|300]]\n");
+  assert.equal(r.repariert, 2);
+});
+
+test("Bereichs-Hub: Karten oben einbetten, nur einmal", () => {
+  const p = planBereichHub("\nChemie]]\nPhysik]]\n", "Bereich.base", "Schule");
+  assert.equal(p.content, "## Übersicht\n![[Bereich.base#Schule]]\n\n[[Chemie]]\n[[Physik]]\n");
+  assert.equal(planBereichHub(p.content!, "Bereich.base", "Schule").content, null);
+  const mitFm = planBereichHub("---\nbanner: x\n---\nText\n", "Bereich.base", "Projekte");
+  assert.equal(mitFm.content, "---\nbanner: x\n---\n## Übersicht\n![[Bereich.base#Projekte]]\n\nText\n");
+});
+
+test("Bereich.base: eine Karten-Ansicht pro Bereich mit Banner-Formel", () => {
+  const b = bereichBase([{ name: "Schule", property: "fach", root: "01-Schule" }, { name: "Projekte", property: "projekt", root: "04-Projekte" }]);
+  assert.match(b, /type: cards\n    name: Schule\n[\s\S]*typ == "fach"\n        - file\.inFolder\("01-Schule"\)/);
+  assert.match(b, /name: Projekte\n[\s\S]*typ == "projekt"/);
+  assert.match(b, /image: formula\.cover/);
+});
+
+test("slimBase: keine Tag-/Datum-/Halbjahr-Spalten, Themen-Hubs als Liste", () => {
+  const s = slimBase("  - type: table\n    name: Themen-Hubs\n    order:\n      - file.name\n      - file.tags\n      - datum\n    sort:\n      - property: datum\n");
+  assert.equal(s, "  - type: list\n    name: Themen-Hubs\n    order:\n      - file.name\n    sort:\n      - property: datum\n");
+});
+
+test("pluginBases: alle Bases, schlank, mit Zusatz-Ansichten", () => {
+  const m = pluginBases(DEFAULT_SETTINGS, "DD-MM-YYYY");
+  assert.deepEqual([...m.keys()].sort(), [
+    "01-Schule/_Bases/Bereich.base",
+    "01-Schule/_Bases/Fach.base",
+    "01-Schule/_Bases/Thema.base",
+    "04-Projekte/_Bases/Projekt.base",
+    "05-Journal/_Bases/Journal.base",
+    "05-Journal/_Bases/Tag.base",
+    "Inbox.base",
+  ]);
+  const fach = m.get("01-Schule/_Bases/Fach.base")!;
+  for (const v of ["Unterthemen", "Abi-relevant", "Themen nach Kapitel", "Begriffe"]) assert.match(fach, new RegExp(`name: ${v}\\n`));
+  assert.doesNotMatch(fach, /^ {6}- file\.tags$/m);
+  assert.match(m.get("05-Journal/_Bases/Tag.base")!, /DD-MM-YYYY/);
+});
+
+test("mergeSettings ergänzt neue Bereichsfelder aus den Standardwerten", () => {
+  const alt = structuredClone(DEFAULT_SETTINGS.bereiche).map((b) => ({ ...b, hubPath: undefined }));
+  for (const b of alt) delete (b as any).hubPath;
+  const s = mergeSettings({ bereiche: alt });
+  assert.equal(s.bereiche[0].hubPath, "01-Schule/Schule.md");
+  assert.equal(s.kompakt, true);
+});
+
+test("Dialog-Daten: Themen mit Anzahl/letztem Datum, Fächer nach letzter Benutzung", async () => {
+  const { collectThemenInfo, kategorieStats, sortByRecent, kurzDatum } = await import("../src/themen.ts");
+  const { pathConfig } = await import("../src/defaults.ts");
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const mathe = cfg.kategorien.find((k) => k.name === "Mathe")!;
+  const tn = (datum: string, fach: string, themen: string[]) => ({ path: `x/${datum} ${fach}.md`, basename: `${datum} ${fach}`, mtime: 0, fm: { typ: "tagesnote", fach: `[[${fach}]]`, datum, themen: themen.map((t) => `[[${t}]]`) } });
+  const notes = [
+    tn("2026-10-01", "Mathe", ["Geraden"]),
+    tn("2026-10-15", "Mathe", ["Ebenen", "Geraden"]),
+    tn("2026-10-10", "Physik", ["Optik"]),
+    { path: "01-Schule/Mathe/_Themen/Vektoren.md", basename: "Vektoren", mtime: 5, fm: { typ: "thema", fach: "[[Mathe]]" } },
+  ];
+  assert.deepEqual(collectThemenInfo(notes, mathe, cfg), [
+    { name: "Ebenen", zuletzt: "2026-10-15", anzahl: 1 },
+    { name: "Geraden", zuletzt: "2026-10-15", anzahl: 2 },
+    { name: "Vektoren", zuletzt: "", anzahl: 0 },
+  ]);
+  const stats = kategorieStats(notes, cfg);
+  assert.deepEqual(stats.get("Mathe"), { zuletzt: "2026-10-15", anzahl: 2 });
+  const order = sortByRecent(["Chemie", "Mathe", "Physik", "Deutsch"], (n) => stats.get(n)?.zuletzt ?? "");
+  assert.deepEqual(order, ["Mathe", "Physik", "Chemie", "Deutsch"]);
+  assert.equal(kurzDatum("2026-10-15", "2026-10-16"), "15.10.");
+  assert.equal(kurzDatum("2025-03-02", "2026-10-16"), "02.03.25");
+  assert.equal(kurzDatum("", "2026-10-16"), "");
+});

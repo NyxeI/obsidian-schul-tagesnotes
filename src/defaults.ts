@@ -31,6 +31,10 @@ export interface SchulSettings {
   inboxBasePath: string;
   /** Tagesübersicht für Daily Notes / Calendar */
   tagBasePath: string;
+  /** Übersicht (Karten) für die Bereichs-Hubs */
+  bereichBasePath: string;
+  /** Kompakte Darstellung der Plugin-Bases (styles.css, body.schul-kompakt) */
+  kompakt: boolean;
   autoSort: boolean;
   autoCreateHubs: boolean;
 }
@@ -70,6 +74,7 @@ const SCHULE: BereichConfig = {
   hubTemplate: "02-Ressourcen/02-3Templates/Themen-Hub.md",
   kategorieBasePath: "01-Schule/_Bases/Fach.base",
   themaBasePath: "01-Schule/_Bases/Thema.base",
+  hubPath: "01-Schule/Schule.md",
 };
 
 const PROJEKTE: BereichConfig = {
@@ -89,6 +94,7 @@ const PROJEKTE: BereichConfig = {
   kategorieBasePath: "04-Projekte/_Bases/Projekt.base",
   // Thema.base ist allgemein (filtert über "themen") – eine Datei für alle Bereiche, damit ![[Thema.base]] eindeutig bleibt.
   themaBasePath: "01-Schule/_Bases/Thema.base",
+  hubPath: "04-Projekte/04 Projekte.md",
 };
 
 export const DEFAULT_SETTINGS: SchulSettings = {
@@ -114,6 +120,8 @@ export const DEFAULT_SETTINGS: SchulSettings = {
   tagZuordnung: { ...DEFAULT_TAG_ZUORDNUNG },
   inboxBasePath: "Inbox.base",
   tagBasePath: "05-Journal/_Bases/Tag.base",
+  bereichBasePath: "01-Schule/_Bases/Bereich.base",
+  kompakt: true,
   autoSort: true,
   autoCreateHubs: true,
 };
@@ -144,7 +152,10 @@ export function bereichOf(s: SchulSettings, fm: Record<string, unknown> | null |
 export function mergeSettings(saved: Record<string, unknown> | null): SchulSettings {
   const s: SchulSettings = structuredClone(DEFAULT_SETTINGS);
   if (!saved) return s;
-  if (Array.isArray(saved.bereiche)) s.bereiche = saved.bereiche as BereichConfig[];
+  if (Array.isArray(saved.bereiche)) {
+    // Neue Felder (z. B. hubPath) aus den Standardwerten ergänzen, gespeicherte Werte haben Vorrang.
+    s.bereiche = (saved.bereiche as BereichConfig[]).map((b) => ({ ...(DEFAULT_SETTINGS.bereiche.find((d) => d.id === b.id) ?? {}), ...b }));
+  }
   else if (Array.isArray(saved.faecher)) {
     // Version 0.1: Schul-Einstellungen lagen direkt auf oberster Ebene.
     const schule = s.bereiche[0];
@@ -160,6 +171,8 @@ export function mergeSettings(saved: Record<string, unknown> | null): SchulSetti
   if (saved.tagZuordnung && typeof saved.tagZuordnung === "object") s.tagZuordnung = saved.tagZuordnung as TagZuordnung;
   if (typeof saved.inboxBasePath === "string") s.inboxBasePath = saved.inboxBasePath;
   if (typeof saved.tagBasePath === "string") s.tagBasePath = saved.tagBasePath;
+  if (typeof saved.bereichBasePath === "string") s.bereichBasePath = saved.bereichBasePath;
+  if (typeof saved.kompakt === "boolean") s.kompakt = saved.kompakt;
   if (typeof saved.autoSort === "boolean") s.autoSort = saved.autoSort;
   if (typeof saved.autoCreateHubs === "boolean") s.autoCreateHubs = saved.autoCreateHubs;
   return s;

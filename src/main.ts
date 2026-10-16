@@ -5,15 +5,16 @@ import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type Kategor
 import { Journal } from "./journal-apply.ts";
 import { resultLine, syncTasks } from "./tasks-apply.ts";
 import { applyBegriffe, planBegriffe } from "./begriffe-apply.ts";
+import { pluginBases } from "./bases.ts";
+import { planBereichHub, type BereichHubPlan } from "./bereichhub.ts";
 import { runHubLinks } from "./hublinks-apply.ts";
-import { kapitelView } from "./hublinks.ts";
 import { runStichworte } from "./stichworte-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
-import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today } from "./paths.ts";
-import { collectThemen } from "./themen.ts";
+import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today, zeitraumFor } from "./paths.ts";
+import { collectThemenInfo, kategorieStats, sortByRecent, type NoteInfo, type ThemaInfo } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
-import { addTagBaseEmbed, addViews, tagBase, DEFAULT_HUB_TEMPLATE, DEFAULT_INBOX_BASE, DEFAULT_JOURNAL_BASE, addBegriffeToKategorieBase, addBegriffeToThemaBase, DEFAULT_THEMA_BASE, DEFAULT_TAGESNOTE_TEMPLATE, kategorieBase, renderTemplate } from "./templates.ts";
+import { addTagBaseEmbed, DEFAULT_HUB_TEMPLATE, DEFAULT_TAGESNOTE_TEMPLATE, renderTemplate } from "./templates.ts";
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
@@ -24,6 +25,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    document.body.toggleClass("schul-kompakt", this.settings.kompakt);
     this.addSettingTab(new SchulSettingTab(this.app, this));
     this.sorter.extra = (file, fm) => this.journal.sort(file, fm);
 
@@ -183,6 +185,44 @@ export default class SchulTagesnotesPlugin extends Plugin {
         ),
     });
 
+    // ---------- Übersicht & Bases ----------
+    this.addCommand({
+      id: "bereichs-hubs-einrichten",
+      name: "Bereichs-Hubs einrichten (Karten der Fächer/Projekte) …",
+      callback: () =>
+        void this.planBereichHubs().then((plans) => {
+          if (plans.size === 0) return void new Notice("Bereichs-Hubs sind schon eingerichtet.");
+          const text = [...plans].map(([f, p]) => `${f.path}: ${p.eingebettet ? `Karten „${p.view}“ oben einbetten` : ""}${p.eingebettet && p.repariert ? ", " : ""}${p.repariert ? `${p.repariert} kaputte Links reparieren` : ""}`);
+          new ConfirmModal(this.app, "Bereichs-Hubs einrichten?", `${text.join("; ")}. Fehlende Übersichts-Base wird angelegt.`, () =>
+            void (async () => {
+              const base = normalizePath(this.settings.bereichBasePath);
+              if (!this.app.vault.getAbstractFileByPath(base)) {
+                const stale = await this.staleBases();
+                const content = stale.get(base);
+                if (content) await this.writeBases(new Map([[base, content]]));
+              }
+              for (const [f, p] of plans) await this.app.vault.process(f, (c) => planBereichHub(c, base.split("/").pop()!, p.view).content ?? c);
+              new Notice(`Bereichs-Hubs: ${plans.size} eingerichtet.`);
+            })(),
+          ).open();
+        }),
+    });
+    this.addCommand({
+      id: "bases-aktualisieren",
+      name: "Base-Dateien auf Plugin-Stand bringen …",
+      callback: () =>
+        void this.staleBases().then((stale) =>
+          stale.size === 0
+            ? new Notice("Alle Bases sind auf dem Plugin-Stand.")
+            : new ConfirmModal(
+                this.app,
+                "Bases neu schreiben?",
+                `${stale.size} Bases weichen ab und werden neu geschrieben: ${[...stale.keys()].join(", ")}. Eigene Änderungen an diesen Dateien (Spalten, Sortierung, zusätzliche Ansichten) gehen dabei verloren – Git-Commit oder Backup vorher!`,
+                () => void this.writeBases(stale),
+              ).open(),
+        ),
+    });
+
     // ---------- Linklisten in Kategorie-Hubs ----------
     this.addCommand({
       id: "hub-linklisten-ersetzen",
@@ -234,6 +274,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
   }
 
   onunload(): void {
+    document.body.removeClass("schul-kompakt");
     this.sorter.cancelAll();
   }
 
@@ -251,17 +292,35 @@ export default class SchulTagesnotesPlugin extends Plugin {
 
   /** Alle Kategorien aller Bereiche für die Auswahl. */
   private kategorien(): KategorieWahl[] {
-    return this.bereiche().flatMap((cfg) => cfg.kategorien.map((fach) => ({ cfg, fach })));
+    const notes = this.noteInfos();
+    const alle = this.bereiche().flatMap((cfg) => {
+      const stats = kategorieStats(notes, cfg);
+      return cfg.kategorien.map((fach) => ({ cfg, fach, ...(stats.get(fach.name) ?? {}) }));
+    });
+    return sortByRecent(alle, (k) => k.zuletzt ?? "");
   }
 
   private pickFachThenThema(): void {
-    new FachModal(this.app, this.kategorien(), (wahl) => this.pickThema(wahl)).open();
+    new FachModal(this.app, this.kategorien(), (wahl) => this.pickThema(wahl), today()).open();
   }
 
   private pickThema({ cfg, fach }: KategorieWahl): void {
-    new ThemaModal(this.app, fach, this.themenOf(cfg, fach), (choice) => {
-      void this.createTagesnote(cfg, fach, choice).catch((e) => new Notice(`Fehler: ${(e as Error).message}`));
-    }).open();
+    const heute = today();
+    const zeitraum = zeitraumFor(heute, cfg) ?? cfg.noHalbjahrFolder;
+    const ordner = (thema: string | null) => {
+      const t = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum: heute, themen: thema ? [`[[${thema}]]`] : [] }, cfg);
+      return t ? t.folder.slice(normalizePath(`${cfg.root}/${fach.folder}`).length + 1) + "/" : "";
+    };
+    new ThemaModal(
+      this.app,
+      fach,
+      this.themenOf(cfg, fach),
+      (choice) => {
+        void this.createTagesnote(cfg, fach, choice).catch((e) => new Notice(`Fehler: ${(e as Error).message}`));
+      },
+      true,
+      { zeitraum, heute, heuteVorhanden: this.findTagesnote(cfg, fach, heute) !== null, ordner },
+    ).open();
   }
 
   private kategorieOfActiveFile(): KategorieWahl | null {
@@ -280,14 +339,17 @@ export default class SchulTagesnotesPlugin extends Plugin {
     return null;
   }
 
-  private themenOf(cfg: PathConfig, fach: Fach): string[] {
-    const notes = this.app.vault.getMarkdownFiles().map((f) => ({
+  private noteInfos(): NoteInfo[] {
+    return this.app.vault.getMarkdownFiles().map((f) => ({
       path: f.path,
       basename: f.basename,
       mtime: f.stat.mtime,
       fm: this.app.metadataCache.getFileCache(f)?.frontmatter,
     }));
-    return collectThemen(notes, fach, cfg);
+  }
+
+  private themenOf(cfg: PathConfig, fach: Fach): ThemaInfo[] {
+    return collectThemenInfo(this.noteInfos(), fach, cfg);
   }
 
   /** Vorhandene Tagesnote desselben Fachs und Tages (egal in welchem Themenordner). */
@@ -432,20 +494,16 @@ export default class SchulTagesnotesPlugin extends Plugin {
       created.push(p);
     };
     // In den Vault-Templates bleiben die Platzhalter stehen; {{property}} und {{base}} werden schon jetzt eingesetzt.
+    const daily = this.dailyOptions();
+    for (const [path, content] of pluginBases(this.settings, daily.format || "YYYY-MM-DD")) await write(path, content);
     for (const cfg of this.bereiche()) {
       const baseName = cfg.themaBasePath.split("/").pop() ?? cfg.themaBasePath;
       const fixed = (t: string) => t.replace(/\{\{base\}\}/g, baseName).replace(/\{\{property\}\}/g, cfg.property);
       const tagesnote = cfg.zeitraum === "halbjahr" ? DEFAULT_TAGESNOTE_TEMPLATE : DEFAULT_TAGESNOTE_TEMPLATE.replace(/^halbjahr:.*\n/m, "");
       await write(cfg.tagesnoteTemplate, fixed(tagesnote));
       await write(cfg.hubTemplate, fixed(DEFAULT_HUB_TEMPLATE));
-      await write(cfg.themaBasePath, addBegriffeToThemaBase(DEFAULT_THEMA_BASE));
-      await write(cfg.kategorieBasePath, addViews(addBegriffeToKategorieBase(kategorieBase(cfg.property, cfg.zeitraum)), [kapitelView(cfg.property)]));
     }
-    await write(this.settings.journal.basePath, DEFAULT_JOURNAL_BASE);
-    await write(this.settings.inboxBasePath, DEFAULT_INBOX_BASE);
     // Calendar-Plugin öffnet Daily Notes → dort die Tagesübersicht einbetten
-    const daily = (this.app as any).internalPlugins?.getPluginById?.("daily-notes")?.instance?.options ?? {};
-    await write(this.settings.tagBasePath, tagBase(daily.format || "YYYY-MM-DD"));
     if (daily.template) {
       const tpl = this.app.vault.getAbstractFileByPath(normalizePath(daily.template.endsWith(".md") ? daily.template : `${daily.template}.md`));
       const baseName = this.settings.tagBasePath.split("/").pop() ?? this.settings.tagBasePath;
@@ -455,6 +513,46 @@ export default class SchulTagesnotesPlugin extends Plugin {
       }
     }
     new Notice(created.length ? `Angelegt: ${created.join(", ")}` : "Alles schon vorhanden.");
+  }
+
+  private dailyOptions(): { format?: string; template?: string } {
+    return (this.app as any).internalPlugins?.getPluginById?.("daily-notes")?.instance?.options ?? {};
+  }
+
+  /** Plugin-Bases, die vom Plugin-Stand abweichen (Pfad → neuer Inhalt). */
+  private async staleBases(): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    for (const [path, content] of pluginBases(this.settings, this.dailyOptions().format || "YYYY-MM-DD")) {
+      const f = this.app.vault.getAbstractFileByPath(normalizePath(path));
+      if (!(f instanceof TFile) || (await this.app.vault.read(f)) !== content) out.set(normalizePath(path), content);
+    }
+    return out;
+  }
+
+  private async writeBases(stale: Map<string, string>): Promise<void> {
+    for (const [path, content] of stale) {
+      const f = this.app.vault.getAbstractFileByPath(path);
+      if (f instanceof TFile) await this.app.vault.modify(f, content);
+      else {
+        await ensureFolder(this.app, path.split("/").slice(0, -1).join("/"));
+        await this.app.vault.create(path, content);
+      }
+    }
+    new Notice(`Bases aktualisiert: ${[...stale.keys()].join(", ")}`, 10000);
+  }
+
+  /** Bereichs-Hubs: Pfad → Plan (Karten einbetten, kaputte Links reparieren). */
+  private async planBereichHubs(): Promise<Map<TFile, BereichHubPlan & { view: string }>> {
+    const out = new Map<TFile, BereichHubPlan & { view: string }>();
+    const baseName = this.settings.bereichBasePath.split("/").pop() ?? this.settings.bereichBasePath;
+    for (const b of this.settings.bereiche) {
+      if (!b.hubPath) continue;
+      const f = this.app.vault.getAbstractFileByPath(normalizePath(b.hubPath));
+      if (!(f instanceof TFile)) continue;
+      const plan = planBereichHub(await this.app.vault.read(f), baseName, b.name);
+      if (plan.content) out.set(f, { ...plan, view: b.name });
+    }
+    return out;
   }
 }
 

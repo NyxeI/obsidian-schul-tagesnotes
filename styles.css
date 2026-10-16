@@ -1,0 +1,155 @@
+/* ===== Schul-Tagesnotes ===================================================
+   1. Dialoge (Neue Tagesnote: Fach → Thema)
+   2. Kompakte Hub-Ansichten: nur bei body.schul-kompakt (Einstellung) und nur
+      für die Plugin-Bases (über das src-Attribut der Einbettung). */
+
+/* ---------- 1. Dialoge ---------- */
+.schul-modal .schul-suggestion {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+}
+.schul-modal .schul-suggestion-icon {
+  display: flex;
+  color: var(--text-muted);
+}
+.schul-modal .suggestion-item.is-selected .schul-suggestion-icon {
+  color: var(--interactive-accent);
+}
+.schul-modal .schul-suggestion-main {
+  flex: 1;
+  min-width: 0;
+}
+.schul-modal .schul-suggestion-title {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.schul-modal .schul-suggestion-sub {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+.schul-modal .schul-suggestion-aside {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.schul-modal .schul-badge {
+  font-size: var(--font-ui-smaller);
+  padding: 0 var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+.schul-modal .schul-modal-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2) var(--size-4-3);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* ---------- 2. Kompakte Hub-Ansichten ---------- */
+body.schul-kompakt :is(
+    .bases-embed[src^="Fach.base"],
+    .bases-embed[src^="Thema.base"],
+    .bases-embed[src^="Projekt.base"],
+    .bases-embed[src^="Bereich.base"],
+    .bases-embed[src^="Journal.base"],
+    .bases-embed[src^="Tag.base"]
+  ) {
+  --schul-gap: var(--size-4-1);
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Werkzeugleiste: nur Ansichten-Wechsel und Trefferzahl; der Rest beim Darüberfahren */
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Bereich.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-toolbar-item:not(.bases-toolbar-views-menu, .bases-toolbar-result-count) {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Bereich.base"], [src^="Journal.base"], [src^="Tag.base"]):hover
+  .bases-toolbar-item {
+  opacity: 1;
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Bereich.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Bereich.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-toolbar-result-count {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Tabelle: ohne Rahmen und Kopfhintergrund, kompakte Zeilen, feine Trennlinien */
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  :is(.bases-table, .bases-thead, .bases-table-header, .bases-td, .bases-table-cell) {
+  border: none;
+  background: transparent;
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-thead {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-tr {
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-tr:hover {
+  background: var(--background-modifier-hover);
+}
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-td {
+  padding-block: var(--schul-gap);
+}
+/* Auswahl-/Nummernspalte weg */
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  .bases-table-selection {
+  display: none;
+}
+
+/* Gruppenköpfe klein und gedämpft */
+body.schul-kompakt .bases-embed:is([src^="Fach.base"], [src^="Thema.base"], [src^="Projekt.base"], [src^="Journal.base"], [src^="Tag.base"])
+  :is(.bases-group-heading, .bases-list-group > :first-child) {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding-block: var(--size-4-2) var(--size-4-1);
+}
+
+/* Fach-Karten im Bereichs-Hub: weiche Karten, Name hervorgehoben */
+body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-item {
+  border-radius: var(--radius-l);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: none;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--interactive-accent);
+}
+body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-cover {
+  background: linear-gradient(135deg, var(--background-secondary-alt), var(--background-modifier-hover));
+}
+body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-line:first-of-type {
+  font-weight: var(--font-semibold);
+}
+body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-label {
+  color: var(--text-faint);
+}

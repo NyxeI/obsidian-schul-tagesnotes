@@ -95,6 +95,17 @@ export class SchulSettingTab extends PluginSettingTab {
         });
       });
     this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
+    this.text(containerEl, "Übersichts-Base", "Karten der Fach-/Projekt-Hubs für die Bereichs-Hubs (Schule.md …).", s.bereichBasePath, (v) => (s.bereichBasePath = v), save);
+    new Setting(containerEl)
+      .setName("Kompakte Hub-Ansichten")
+      .setDesc("Blendet in den eingebetteten Plugin-Bases Rahmen und Werkzeugleiste aus (nur der Ansichten-Wechsel bleibt, der Rest erscheint beim Darüberfahren).")
+      .addToggle((t) =>
+        t.setValue(s.kompakt).onChange(async (v) => {
+          s.kompakt = v;
+          document.body.toggleClass("schul-kompakt", v);
+          await save();
+        }),
+      );
     this.text(containerEl, "Tages-Base", "Tagesübersicht für Daily Notes (Calendar): Tagesnotes und Journal vom selben Datum.", s.tagBasePath, (v) => (s.tagBasePath = v), save);
 
     // ---------- Aufgaben ----------
@@ -106,6 +117,7 @@ export class SchulSettingTab extends PluginSettingTab {
   private bereichSection(el: HTMLElement, b: BereichConfig, save: () => Promise<void>): void {
     new Setting(el).setName(`Bereich: ${b.name}`).setHeading();
     this.text(el, "Ordner", "Darunter liegt pro Kategorie ein Ordner.", b.root, (v) => (b.root = v), save);
+    this.text(el, "Haupt-Hub", "Übersichtsnote des Bereichs; „Bereichs-Hubs einrichten“ bettet dort die Karten aller Kategorien ein.", b.hubPath ?? "", (v) => (b.hubPath = v), save);
     new Setting(el)
       .setName(b.property === "fach" ? "Fächer" : "Kategorien")
       .setDesc("Eine Zeile pro Kategorie: Name | Ordner | tag. Der Name muss dem Hub entsprechen (<Ordner>/<Name>.md).")

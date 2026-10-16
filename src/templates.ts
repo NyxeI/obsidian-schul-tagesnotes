@@ -526,3 +526,84 @@ export function addTagBaseEmbed(template: string, baseName: string): string {
   if (template.includes(`![[${baseName}`)) return template;
   return `${template.replace(/\s*$/, "")}\n\n## Heute\n![[${baseName}]]\n`;
 }
+
+/** Bereich, wie ihn die Übersichts-Base braucht. */
+export interface BereichKarte {
+  name: string;
+  /** Property der Kategorie = `typ` des Kategorie-Hubs ("fach", "projekt"). */
+  property: string;
+  root: string;
+}
+
+/**
+ * Übersicht für den Haupt-Hub eines Bereichs (Schule.md, 04 Projekte.md): eine Karten-Ansicht pro Bereich,
+ * je Karte ein Kategorie-Hub mit Banner, Anzahl Tagesnotes und letzter Tagesnote.
+ */
+export function bereichBase(bereiche: BereichKarte[]): string {
+  const views = bereiche
+    .map(
+      (b) => `  - type: cards
+    name: ${b.name}
+    filters:
+      and:
+        - typ == "${b.property}"
+        - file.inFolder("${b.root}")
+    image: formula.cover
+    imageAspectRatio: 0.5
+    cardSize: 180
+    order:
+      - file.name
+      - formula.tagesnotes
+      - formula.zuletzt
+    sort:
+      - property: file.name
+        direction: ASC
+`,
+    )
+    .join("");
+  return `# Übersicht für Bereichs-Hubs: Karten der Kategorie-Hubs (Fächer, Projekte). Eingebettet als ![[Bereich.base#<Bereich>]].
+# Banner: URL, "[[bild.jpg]]" oder Pfad – die Formel macht daraus ein Titelbild.
+formulas:
+  cover: 'if(banner, if(banner.toString().startsWith("http"), banner.toString(), link(banner.toString().replace("[[", "").replace("]]", ""))), "")'
+  tagesnotes: file.backlinks.filter(value.asFile().properties.typ == "tagesnote").length
+  zuletzt: 'if(formula.tagesnotes > 0, date(file.backlinks.filter(value.asFile().properties.typ == "tagesnote").map(value.asFile().properties.datum).sort().reverse()[0]).format("DD.MM.YYYY"), "")'
+properties:
+  formula.tagesnotes:
+    displayName: Tagesnotes
+  formula.zuletzt:
+    displayName: Zuletzt
+filters:
+  and:
+    - file.ext == "md"
+views:
+${views}`;
+}
+
+/**
+ * Hub-Ansichten entschlacken: Spalten, die Dateiname, Ordner oder Gruppierung schon zeigen, fallen weg
+ * (Datum steckt im Dateinamen der Tagesnote, Halbjahr im Ordner, Tags in Fach/Themen); Themen-Hub-Listen werden zu Listen.
+ */
+export function slimBase(text: string): string {
+  const namen = /^properties:/m.test(text)
+    ? text
+    : text.replace(
+        /^filters:/m,
+        `properties:
+  file.name:
+    displayName: Note
+  file.mtime:
+    displayName: Geändert
+  themen:
+    displayName: Themen
+  unterthemen:
+    displayName: Unterthemen
+  kapitel:
+    displayName: Kapitel
+  typ:
+    displayName: Typ
+filters:`,
+      );
+  return namen
+    .replace(/^ {6}- (file\.tags|datum|halbjahr)\n/gm, "")
+    .replace(/  - type: table\n    name: (Themen-Hubs(?: zuletzt geändert)?|Themen nach Kapitel)\n/g, "  - type: list\n    name: $1\n");
+}
