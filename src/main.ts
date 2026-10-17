@@ -326,7 +326,10 @@ export default class SchulTagesnotesPlugin extends Plugin {
       return c.replace(re, `![[${base}#${ansicht}]]`);
     });
     if (!changed) new Notice(`Keine Einbettung von ${base} im Hub gefunden.`);
-    await this.open(hub);
+    // Hub zeigen, ohne den Cursor ans Ende zu setzen (die Base steht oben)
+    const offen = this.app.workspace.getLeavesOfType("markdown").find((l) => l.view instanceof MarkdownView && l.view.file === hub);
+    if (offen) this.app.workspace.setActiveLeaf(offen, { focus: true });
+    else await this.app.workspace.getLeaf(false).openFile(hub);
   }
 
   onunload(): void {

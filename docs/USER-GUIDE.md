@@ -45,7 +45,9 @@ The plugin's interface is in German. Command names are quoted in German with an 
    - Recently used subjects come first.
    - Each row shows the area, the number of daily notes and the date of the last one.
    - Typing filters the list; matches at the start of a word come first.
-3. **Choose a topic.**
+3. **Choose the date and a topic.**
+   - **Date bar** on top: today by default. *Alt+←/→* moves by a day, *Ctrl+D* focuses the date field, „Heute“ jumps back. The badge shows the term of the chosen date.
+   - **„schon da“** (*already there*): notes of the subject that already exist on that day. Selecting one opens it.
    - **„Ohne Thema“** (*no topic*): the note goes to `_Allgemein`.
    - **Topics used recently**, with count and last date.
    - **Other topics of the subject** (from `thema` and old notes), most recently edited first.
@@ -104,7 +106,37 @@ Switch views with the dropdown at the top left of an embedded base. *Sort*, *Gro
 - **Text:** the number of daily notes and the date of the last one.
 - **Click:** opens the category hub.
 
-**Compact look:** *Settings → Kompakte Hub-Ansichten* (on by default) styles the plugin's embedded bases:
+## Toolbar, control panel and display toggles
+
+**Toolbar** (on top of hubs and dated notes, can be switched off):
+- **Hub:** new note in this subject, new note for another date, display toggles, open the panel.
+- **Dated note:**
+  - the subject hub,
+  - previous/next note in the same topic with the position (*Integrals · 2/3*),
+  - for migrated notes with an estimated date, a „≈ date“ badge with **confirm** (removes `datum_geschaetzt`) and **change date** (the note then moves to the matching term).
+
+**Control panel** (ribbon icon *sliders*, command „Schul-Panel öffnen“) opens in the right sidebar. It always follows the last active note, even while the panel itself has the focus.
+- **Hub:**
+  - number of notes, topics and estimated dates, and the date range,
+  - new note,
+  - chips that switch the hub's top view (the choice is saved in the hub).
+- **Dated note:**
+  - subject, topic, section, part and date with confirm/change,
+  - previous/next note in the topic,
+  - hub,
+  - another note for the same topic.
+- **Always:** the display toggles, „Neue Tagesnote …“ and the notes of today.
+
+**Display toggles** (panel, settings → *Anzeige*, or a command each for hotkeys):
+
+| Toggle | Default | Effect |
+|---|---|---|
+| Kompakte Base-Ansichten | on | Only the view switcher and result count stay visible in the plugin's bases; borders go away |
+| TaskNotes-Widget in Hubs | off | Shows TaskNotes' subtasks/relationships widget in subject and project hubs (other notes are not affected) |
+| Properties in datierten Notes | on | Shows the properties block in dated notes |
+| Menüleiste in Notes | on | Shows the toolbar described above |
+
+**Compact look:** the toggle „Kompakte Base-Ansichten“ (on by default) styles the plugin's embedded bases:
 - only the view switcher and the result count stay visible; the other toolbar buttons appear on hover,
 - tables have no borders and use compact rows,
 - group headings are smaller.
@@ -117,6 +149,9 @@ Customise it with your own CSS snippet: every rule is scoped to `body.schul-komp
 |---|---|---|
 | Neue Tagesnote … | New daily note | Subject → topic → create or open the note |
 | Tagesnote heute im Fach der aktuellen Note | Today's note in current subject | As above, subject taken from the open note |
+| Tagesnote für anderes Datum … | Note for another date | As above with the date field focused |
+| Schul-Panel öffnen | Open control panel | Side panel for the active note |
+| Anzeige umschalten: … | Toggle display: … | One command per display toggle |
 | Aktuelle Note einsortieren | File current note | Fix folder, tags and term of the open note |
 | Alle Tagesnotes einsortieren | File all daily notes | Same for the whole vault, with summary |
 | Templates und Base im Vault anlegen | Create templates and bases | Creates missing templates and bases |

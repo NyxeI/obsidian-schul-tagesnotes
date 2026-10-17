@@ -38,6 +38,15 @@ export class SchulSettingTab extends PluginSettingTab {
         }),
       );
 
+    // ---------- Anzeige ----------
+    new Setting(containerEl).setName("Anzeige").setHeading();
+    for (const sch of SCHALTER) {
+      new Setting(containerEl)
+        .setName(sch.name)
+        .setDesc(sch.desc)
+        .addToggle((t) => t.setValue(s.anzeige[sch.key]).onChange(() => void this.plugin.anzeige.toggle(sch.key)));
+    }
+
     // ---------- Bereiche ----------
     for (const b of s.bereiche) this.bereichSection(containerEl, b, save);
 
@@ -88,13 +97,6 @@ export class SchulSettingTab extends PluginSettingTab {
       });
     this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
     this.text(containerEl, "Übersichts-Base", "Karten der Fach-/Projekt-Hubs für die Bereichs-Hubs (Schule.md …).", s.bereichBasePath, (v) => (s.bereichBasePath = v), save);
-    new Setting(containerEl).setName("Anzeige").setHeading();
-    for (const sch of SCHALTER) {
-      new Setting(containerEl)
-        .setName(sch.name)
-        .setDesc(sch.desc)
-        .addToggle((t) => t.setValue(s.anzeige[sch.key]).onChange(() => void this.plugin.anzeige.toggle(sch.key)));
-    }
     this.text(containerEl, "Tages-Base", "Tagesübersicht für Daily Notes (Calendar): Tagesnotes und Journal vom selben Datum.", s.tagBasePath, (v) => (s.tagBasePath = v), save);
 
     // ---------- Aufgaben ----------
@@ -130,14 +132,11 @@ export class SchulSettingTab extends PluginSettingTab {
             await save();
           }),
       );
-    this.text(el, "Ordner für Themen-Hubs", "Unterordner der Kategorie, z. B. _Themen.", b.hubFolder, (v) => (b.hubFolder = v), save);
     this.text(el, "Ordner ohne Thema", "Für Tagesnotes ohne Eintrag in „themen“.", b.generalFolder, (v) => (b.generalFolder = v), save);
     this.text(el, "Ordner ohne Zeitraum", "Wenn das Datum in keinem Halbjahr liegt.", b.noHalbjahrFolder, (v) => (b.noHalbjahrFolder = v), save);
     this.text(el, "Dateiname", "Platzhalter {datum} und {fach}.", b.fileNamePattern, (v) => (b.fileNamePattern = v), save);
     this.text(el, "Template Tagesnote", "Fehlt die Datei, wird das eingebaute Template verwendet.", b.tagesnoteTemplate, (v) => (b.tagesnoteTemplate = v), save);
-    this.text(el, "Template Themen-Hub", "Fehlt die Datei, wird das eingebaute Template verwendet.", b.hubTemplate, (v) => (b.hubTemplate = v), save);
     this.text(el, "Base für Kategorie-Hubs", "Wird im Hub der Kategorie eingebettet.", b.kategorieBasePath, (v) => (b.kategorieBasePath = v), save);
-    this.text(el, "Base für Themen-Hubs", "Platzhalter {{base}} im Hub-Template.", b.themaBasePath, (v) => (b.themaBasePath = v), save);
   }
 
   private text(el: HTMLElement, name: string, desc: string, value: string, set: (v: string) => void, save: () => Promise<void>): void {

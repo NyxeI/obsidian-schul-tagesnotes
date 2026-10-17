@@ -24,7 +24,95 @@ An [Obsidian](https://obsidian.md) plugin for **dated notes per subject**. Inste
   - unify inline tags (`stichwort/`, `person/`, `markierung/`),
   - link glossary terms and people,
   - replace hand-written link lists with Bases views.
-- **Compact look.** Optional styles hide the Bases toolbar clutter and table borders in the plugin's hubs.
+- **Control panel and toolbar.**
+  - A side panel (like Advanced Tables) follows the active note: stats, navigation within a topic, confirming or changing estimated dates, display toggles.
+  - A slim toolbar sits on top of hubs and dated notes.
+- **Display toggles.** Compact Bases views, the TaskNotes widget in hubs, the properties block in dated notes and the toolbar can each be switched on and off (panel, settings or command).
+
+## Tour
+
+The screenshots come from a demo vault with invented content (`node scripts/demo-vault.ts <folder>`). The interface is German; the captions explain what you see.
+
+### 1. Overview: one card per subject
+
+![Area hub with one card per subject](docs/images/01-area-hub.png)
+
+The area hub (`School.md`) embeds `![[Bereich.base#Schule]]`. Each card shows:
+- the subject's banner,
+- the number of dated notes (*Tagesnotes*),
+- the date of the last one (*Zuletzt*).
+
+A click opens the subject hub.
+
+### 2. One hub per subject
+
+![Subject hub grouped by topic](docs/images/02-subject-hub.png)
+
+The subject hub is the only hub of a subject. On top, the view **Nach Thema** groups all notes by topic, oldest first. The parts of a former topic note (*Abschnitt*) stay in order.
+
+The toolbar above the note offers:
+- **Neue Note in Math** (new note in this subject),
+- a note for another date,
+- the display toggles,
+- the control panel.
+
+Switch views with the dropdown: by date, term, topic, chapter, subtopics, exam-relevant, check dates, glossary terms.
+
+### 3. Check estimated dates – with the control panel
+
+![Check-dates view next to the control panel](docs/images/03-check-dates-panel.png)
+
+**Datum prüfen** lists the notes whose date was estimated from the file during the migration.
+
+The **control panel** (ribbon icon *sliders* or command „Schul-Panel öffnen“) follows the active note. For a hub it shows:
+- the number of notes, topics and estimated dates,
+- buttons for new notes,
+- chips that switch the hub's view,
+- the display toggles.
+
+### 4. A dated note
+
+![Dated note with toolbar and panel](docs/images/04-dated-note.png)
+
+Every lesson is a note named `<date> <subject>`. Further notes on the same day get ` (2)`, ` (3)` …
+
+The toolbar shows:
+- the hub,
+- the position within the topic (*Integrals · 2/3*) with previous/next,
+- the estimated date (≈) with buttons to **confirm** or **change** it. After a change the note moves to the matching term folder.
+
+### 5. Less clutter: hide the properties
+
+![Same note with the properties block hidden](docs/images/05-properties-hidden.png)
+
+With **Properties in datierten Notes** switched off, dated notes show only their content. The other toggles hide the TaskNotes widget in hubs (off by default) and the Bases toolbar (compact mode).
+
+### 6. Writing in class: new dated note
+
+![Step 1: choose a subject](docs/images/06-dialog-subject.png)
+
+*Ctrl+Alt+N* (or the ribbon icon) opens the dialog.
+
+**Step 1:** choose the subject. Recently used subjects come first, each with its area, number of notes and last date.
+
+![Step 2: date, notes already there, topic](docs/images/07-dialog-topic.png)
+
+**Step 2:** choose the date and the topic.
+- **Date:** today by default. *Alt+←/→* moves by a day, *Ctrl+D* lets you type a date.
+- **Schon da** (already there): the notes that already exist for that day. Selecting one opens it.
+- **Topic:** the same topic opens its note; a new topic (just type) creates `… (3)`. The target folder and name are shown on the right.
+
+### 7. Calendar: everything of one day
+
+![Daily note with the day overview](docs/images/08-daily-note.png)
+
+The daily note (Calendar plugin or *Daily notes*) embeds `![[Tag.base]]`. It lists all dated notes and journal notes of that day.
+
+### 8. Migrating an existing vault
+
+![Dry-run report of a migration](docs/images/09-migration-report.png)
+
+The dry run (`node scripts/probelauf2.ts <vault> report.md`) reads an old topic-based vault without changing it. It shows, for every old note, the dated notes it will become, plus warnings and redirected links. The migration then runs in Obsidian, one confirmed step at a time. See [docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Installation (BRAT)
 

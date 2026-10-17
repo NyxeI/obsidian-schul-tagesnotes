@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.0
+
+- **Control panel** in the sidebar (like Advanced Tables). It follows the active note:
+  - hub stats,
+  - chips that switch the hub's view,
+  - navigation within a topic,
+  - confirming or changing estimated dates,
+  - display toggles,
+  - today's notes.
+- **Toolbar** on top of hubs and dated notes:
+  - new note, or a new note for another date,
+  - previous/next note in the topic,
+  - a badge for estimated dates,
+  - the toggles.
+- **Display toggles:** compact bases, TaskNotes widget in hubs (now hidden by default), properties in dated notes, toolbar. Available in the panel, the settings („Anzeige“, now at the top) and as commands.
+- **New-note dialog:**
+  - a date bar (*Alt+←/→*, *Ctrl+D*, „Heute“),
+  - the notes that already exist that day („schon da“),
+  - target names with ` (n)`.
+  - New command „Tagesnote für anderes Datum …“.
+- **Migration:** a short preamble before date markers (e.g. only `# Title`) no longer becomes a note of its own.
+- **Day overview** (`Tag.base`): column `thema` instead of the old `themen`; German column names.
+- **Settings:** fields for the removed topic hubs are gone.
+- **README:** new illustrated tour; `scripts/demo-vault.ts` builds a demo vault with invented content.
+
 ## 0.3.0
 
 **One hub per category.** Topic hubs (`_Themen/`) are gone; the topic is the text property `thema`.

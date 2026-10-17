@@ -37,11 +37,21 @@ obsidian vault=<name> eval code="app.plugins.plugins['schul-tagesnotes'].setting
 
 Use a **copy** of a real vault for testing bulk commands. Never run them on your only copy.
 
+### Demo vault and screenshots
+
+`node scripts/demo-vault.ts <folder> [YYYY-MM-DD]` builds a vault with invented content: four subjects, one project, about 20 dated notes (some with estimated dates), tasks, a scratchpad and a daily note. It copies the current build, so run `npm run build` first. The copy has its own `data.json`; a symlink would share the settings with other test vaults. Set `TASKNOTES_DIR=<folder with TaskNotes main.js/manifest.json/styles.css>` to include TaskNotes.
+
+The README screenshots were taken from this vault with Electron's `capturePage()` via the Obsidian CLI (`eval`). That works without bringing the window to the front. Things to know:
+- Call `webContents.setBackgroundThrottling(false)` and `invalidate()` first. Otherwise an occluded window returns a stale frame.
+- Disable CSS animations, or modals stay invisible.
+- Keep each `eval` under about 2 seconds; wait in the shell instead.
+
 ### Known quirks
 
 - `obsidian … base:query` returns results reliably only the first time a base file is queried. For repeated checks, query a fresh copy of the file, or open the note and inspect the rendered DOM (`.bases-embed`, `.bases-cards-item`, `.bases-tr`).
 - Bases renders only embeds that are visible. In live preview, scroll the editor to the embed first. A window in the background may not repaint, so screenshots can be stale.
-- Long `eval` calls hit the CLI timeout. Split them into short steps.
+- Long `eval` calls hit the CLI timeout (about 3 seconds). Split them into short steps.
+- Do not open another vault through internal IPC (`vault-open`) from a running window. It quit the whole Obsidian app during development; register the vault in `obsidian.json` while Obsidian is closed instead.
 - `RangeError: Field is not present in this state` in the console comes from the Ink plugin, not from this plugin.
 
 ## Releases (GitHub + BRAT)

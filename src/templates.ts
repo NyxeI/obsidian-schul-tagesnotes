@@ -429,6 +429,19 @@ export function addViews(text: string, views: [string, string][]): string {
 export function tagBase(format: string): string {
   const f = format.replace(/"/g, '\\"');
   return `# Tagesübersicht: wird in der Daily Note eingebettet (![[Tag.base]]) und zeigt alles vom selben Datum.
+properties:
+  file.name:
+    displayName: Note
+  note.fach:
+    displayName: Fach
+  note.projekt:
+    displayName: Projekt
+  note.thema:
+    displayName: Thema
+  note.kategorie:
+    displayName: Kategorie
+  note.uhrzeit:
+    displayName: Uhrzeit
 filters:
   and:
     - file.ext == "md"
@@ -447,7 +460,7 @@ views:
       - file.name
       - fach
       - projekt
-      - themen
+      - thema
       - kategorie
       - uhrzeit
     sort:

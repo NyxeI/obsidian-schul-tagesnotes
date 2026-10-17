@@ -202,6 +202,11 @@ export function buildPlanV2(
       // Liegt das Dateidatum vor den Halbjahren, bekommt der undatierte Teil die erste Datumsmarke innerhalb der Halbjahre
       const datumUndatiert = zeitraumFor(datumDatei, cfg) ? datumDatei : split.sections.find((x) => zeitraumFor(x.datum, cfg))?.datum ?? datumDatei;
       const dated = split.sections.map((s) => ({ heading: null as string | null, text: s.body, datum: s.datum }));
+      // Kurzer Vorspann vor Datumsmarken (z. B. nur "# Titel") wird keine eigene Note, sondern kommt in den ersten Tag
+      if (dated.length && undated.length === 1 && undated[0].text.length < opts.minLen) {
+        dated[0].text = `${undated[0].text}\n\n${dated[0].text}`;
+        undated.length = 0;
+      }
       const all: { heading: string | null; text: string; anchors: string[]; datum: string; geschaetzt: boolean }[] = [
         ...undated.map((p) => ({ heading: p.heading, text: p.text, anchors: p.anchors, datum: datumUndatiert, geschaetzt: true })),
         ...dated.map((d) => ({ heading: d.heading, text: d.text, anchors: splitHeadings(d.text, { maxLevel: 6, minLen: 0 }).flatMap((p) => p.anchors), datum: d.datum, geschaetzt: false })),

@@ -164,5 +164,17 @@ test("buildPlanV2: Notes vor den Halbjahren und in Ordnern früherer Stufen blei
   assert.deepEqual(plan.sources.map((s) => s.from), ["01-Schule/Mathe/Gemischt.md"]);
   assert.deepEqual(plan.skipped.map((s) => s.path).sort(), ["01-Schule/Mathe/11/IV/Ableitung.md", "01-Schule/Mathe/Alt.md"]);
   assert.deepEqual(plan.files, []);
-  assert.deepEqual(plan.parts.map((p) => [p.datum, p.geschaetzt]), [["2026-03-14", true], ["2026-03-14", false]]);
+  assert.deepEqual(plan.parts.map((p) => [p.datum, p.geschaetzt]), [["2026-03-14", false]], "kurzer Vorspann geht in den datierten Teil");
+});
+
+test("buildPlanV2: kurzer Vorspann vor Datumsmarken wird Teil des ersten Tages", () => {
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const notes = [
+    { path: "01-Schule/Mathe/Mathe.md", content: "", fm: null },
+    { path: "01-Schule/Mathe/Integrale.md", content: "# Integrale\n\n## 14.10.2026\nFläche.\n\n## 16.10.2026\nHauptsatz.\n", fm: null },
+  ];
+  const t = new Date("2026-10-05T10:00:00").getTime();
+  const plan = buildPlanV2(notes, [], new Map([["01-Schule/Mathe/Integrale.md", { ctime: t, mtime: t }]]), cfg, simpleResolver(notes.map((n) => n.path)), undefined, "2026-10-17");
+  assert.deepEqual(plan.parts.map((p) => [p.datum, p.geschaetzt]), [["2026-10-14", false], ["2026-10-16", false]]);
+  assert.match(plan.parts[0].content, /# Integrale\n\nFläche\./);
 });
