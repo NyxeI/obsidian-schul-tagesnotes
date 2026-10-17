@@ -65,7 +65,10 @@ export interface PlanV2Options {
   maxLevel: number;
 }
 
-export const DEFAULT_V2_OPTIONS: PlanV2Options = { minLen: 200, maxLevel: 2 };
+export const DEFAULT_V2_OPTIONS: PlanV2Options = { minLen: 300, maxLevel: 2 };
+
+/** Ordner einer früheren Jahrgangsstufe, z. B. "11", "11. Klasse" (bleiben bei Halbjahr-Bereichen außen vor). */
+const ALTE_STUFE = /^(?:\d{1,2}|\d{1,2}\. ?Klasse|Klasse ?\d{1,2})$/i;
 
 /** Frontmatter-Schlüssel, die das Plugin setzt – alte Werte dazu werden nicht übernommen. */
 const OWN_KEYS = new Set(["typ", "datum", "halbjahr", "thema", "themen", "abschnitt", "teil", "kapitel", "quelle", "datum_geschaetzt", "unterthemen", "tags", "migriert", "aliases", "alias"]);
@@ -143,6 +146,8 @@ export function buildPlanV2(
   const taken = new Set<string>([...notes.map((n) => n.path), ...otherFiles]);
   const drafts: Draft[] = [];
   const splitting = new Set<string>();
+  /** Notes, die außen vor bleiben (frühere Jahrgangsstufe) – ihre Ordner und Anhänge bleiben liegen. */
+  const excluded = new Set<string>();
 
   for (const fach of cfg.kategorien) {
     const prefix = `${root}/${fach.folder}/`;
@@ -175,19 +180,30 @@ export function buildPlanV2(
       if (fm["excalidraw-plugin"] !== undefined) { plan.skipped.push({ path: n.path, reason: "Excalidraw-Zeichnung" }); continue; }
       if (fm["kanban-plugin"] !== undefined) { plan.skipped.push({ path: n.path, reason: "Kanban-Board" }); continue; }
       if (/(^|\/)attachments\//i.test(rel)) { plan.skipped.push({ path: n.path, reason: "liegt in attachments" }); continue; }
-      splitting.add(n.path);
-      // Thema-Hubs aus Migration v1 heißen schon richtig; sonst der Dateiname
-      const thema = stem(n.path);
       const kapitel = typeof fm.kapitel === "string" ? fm.kapitel : dirOf(rel).replace(new RegExp(`^${cfg.hubFolder}(/|$)`), "") || null;
       const datumDatei = estimatedDate(fileDates.get(n.path), heute);
       const { body } = splitFrontmatter(n.content);
       // Base-Einbettung alter Themen-Hubs entfernen
       const clean = body.replace(/^## Tagesnotes\s*\n!\[\[[^\]]*Thema\.base[^\]]*\]\]\s*$/m, "").replace(/!\[\[Thema\.base[^\]]*\]\]/g, "");
       const split = splitSections(clean);
+      // Nur die konfigurierten Halbjahre: Notes früherer Jahrgangsstufen bleiben unverändert liegen
+      if (cfg.zeitraum === "halbjahr") {
+        if (dirOf(rel).split("/").some((seg) => ALTE_STUFE.test(seg))) { plan.skipped.push({ path: n.path, reason: "Ordner einer früheren Jahrgangsstufe" }); excluded.add(n.path); continue; }
+        if (!zeitraumFor(datumDatei, cfg) && !split.sections.some((s) => zeitraumFor(s.datum, cfg))) {
+          plan.skipped.push({ path: n.path, reason: `vor den Halbjahren (Datum ${datumDatei})` });
+          excluded.add(n.path);
+          continue;
+        }
+      }
+      splitting.add(n.path);
+      // Thema-Hubs aus Migration v1 heißen schon richtig; sonst der Dateiname
+      const thema = stem(n.path);
       const undated = splitHeadings(split.preamble, opts);
+      // Liegt das Dateidatum vor den Halbjahren, bekommt der undatierte Teil die erste Datumsmarke innerhalb der Halbjahre
+      const datumUndatiert = zeitraumFor(datumDatei, cfg) ? datumDatei : split.sections.find((x) => zeitraumFor(x.datum, cfg))?.datum ?? datumDatei;
       const dated = split.sections.map((s) => ({ heading: null as string | null, text: s.body, datum: s.datum }));
       const all: { heading: string | null; text: string; anchors: string[]; datum: string; geschaetzt: boolean }[] = [
-        ...undated.map((p) => ({ heading: p.heading, text: p.text, anchors: p.anchors, datum: datumDatei, geschaetzt: true })),
+        ...undated.map((p) => ({ heading: p.heading, text: p.text, anchors: p.anchors, datum: datumUndatiert, geschaetzt: true })),
         ...dated.map((d) => ({ heading: d.heading, text: d.text, anchors: splitHeadings(d.text, { maxLevel: 6, minLen: 0 }).flatMap((p) => p.anchors), datum: d.datum, geschaetzt: false })),
       ];
       if (!all.length) all.push({ heading: null, text: "", anchors: [], datum: datumDatei, geschaetzt: true });
@@ -203,6 +219,8 @@ export function buildPlanV2(
     for (const f of otherFiles.filter((x) => x.startsWith(prefix)).sort()) {
       const rel = f.slice(prefix.length);
       if (/^attachments\//i.test(rel)) continue;
+      if (cfg.zeitraum === "halbjahr" && dirOf(rel).split("/").some((seg) => ALTE_STUFE.test(seg))) continue;
+      if ([...excluded].some((e) => dirOf(e) === dirOf(f) && dirOf(f) !== dirOf(hubPath))) continue;
       const dir = dirOf(rel).split("/").filter((seg) => seg && seg.toLowerCase() !== "attachments" && seg !== cfg.hubFolder).join("/");
       const to = `${prefix}attachments/${dir ? dir + "/" : ""}${baseName(f)}`;
       if (to === f) continue;

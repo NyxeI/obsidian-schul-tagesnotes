@@ -89,7 +89,8 @@ export function rewriteLinks(
     } catch {
       return m;
     }
-    if (!/\.md$/i.test(linkpath) && linkpath !== "") return m;
+    // Andere Dateitypen (Bilder, PDFs …) bleiben; Notes stehen mit oder ohne ".md" da
+    if (/\.[A-Za-z0-9]{1,5}$/.test(linkpath) && !/\.md$/i.test(linkpath)) return m;
     const oldPath = linkpath ? resolve(linkpath.replace(/\.md$/i, "")) : self?.oldPath ?? null;
     const target = oldPath ? targets.get(oldPath) : undefined;
     if (!target) return m;

@@ -145,15 +145,15 @@ ${sort}`;
 ${zeitraum === "jahr" ? "formulas:\n  jahr: date(datum).year\n" : ""}properties:
   file.name:
     displayName: Note
-  thema:
+  note.thema:
     displayName: Thema
-  abschnitt:
+  note.abschnitt:
     displayName: Abschnitt
-  unterthemen:
+  note.unterthemen:
     displayName: Unterthemen
-  kapitel:
+  note.kapitel:
     displayName: Kapitel
-  datum:
+  note.datum:
     displayName: Datum
 filters:
   and:
@@ -530,13 +530,13 @@ export function slimBase(text: string): string {
     displayName: Note
   file.mtime:
     displayName: Geändert
-  themen:
+  note.themen:
     displayName: Themen
-  unterthemen:
+  note.unterthemen:
     displayName: Unterthemen
-  kapitel:
+  note.kapitel:
     displayName: Kapitel
-  typ:
+  note.typ:
     displayName: Typ
 filters:`,
       );

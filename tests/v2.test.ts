@@ -65,6 +65,14 @@ test("rewriteLinks: Ziel, Anker, Alias, Einbettung, Tabelle, Markdown-Link, Code
   assert.deepEqual(r.missing, ["Woyzeck#Fehlt"]);
 });
 
+test("rewriteLinks: Markdown-Links ohne .md und URL-kodiert, Bilder bleiben", () => {
+  const r = rewriteLinks("[rekursiv](Woyzeck) [x](Woyzeck#Doktor) [y](Woyzeck%20) ![b](bild.png) [w](https://a.b/Woyzeck)", (lp) => resolve(lp.trim()), targets);
+  assert.equal(
+    r.content,
+    "[rekursiv](<D/12-1/Woyzeck/2025-03-14 Deutsch.md>) [x](<D/12-1/Woyzeck/2025-03-14 Deutsch (2).md#Doktor>) [y](<D/12-1/Woyzeck/2025-03-14 Deutsch.md>) ![b](bild.png) [w](https://a.b/Woyzeck)",
+  );
+});
+
 test("rewriteLinks: [[#Überschrift]] innerhalb einer aufgeteilten Note", () => {
   const self = { oldPath: "D/Woyzeck.md", basename: "2025-03-14 Deutsch" };
   assert.equal(rewriteLinks("siehe [[#Doktor]]", resolve, targets, self).content, "siehe [[2025-03-14 Deutsch (2)#Doktor|Doktor]]");
@@ -83,7 +91,7 @@ test("Pfade: thema als Text, Namen mit Suffix", () => {
   assert.deepEqual(themaOf({ thema: "[[Geraden]]" }), ["Geraden"]);
   assert.deepEqual(themaOf({ themen: ["[[Alt]]"] }), ["Alt"]);
   const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
-  assert.equal(computeTarget({ fach: "[[Mathe]]", datum: "2025-03-14", thema: "Geraden" }, cfg)!.path, "01-Schule/Mathe/11-2/Geraden/2025-03-14 Mathe.md");
+  assert.equal(computeTarget({ fach: "[[Mathe]]", datum: "2026-03-14", thema: "Geraden" }, cfg)!.path, "01-Schule/Mathe/12-2/Geraden/2026-03-14 Mathe.md");
   assert.equal(tagesnoteName("2025-03-14 Mathe", 3), "2025-03-14 Mathe (3)");
   assert.equal(suffixNumber("2025-03-14 Mathe (3)", "2025-03-14 Mathe"), 3);
   assert.equal(suffixNumber("2025-03-14 Mathe", "2025-03-14 Mathe"), 1);
@@ -108,25 +116,25 @@ test("buildPlanV2: Teile mit Datum, eindeutige Namen, Links umgeleitet, Hub und 
       content: "---\naliases: [Büchner]\nbanner: x\n---\n# Woyzeck\nEinleitung zum Drama von Büchner, lang genug für einen eigenen Teil.\n## Doktor\nDer Doktor als Aggressor, mit genug Text für einen eigenen Teil. Siehe [[#Woyzeck]].\n",
       fm: { aliases: ["Büchner"], banner: "x" },
     },
-    { path: "01-Schule/Deutsch/Dramen/Faust.md", content: "Faust, ohne Überschrift.\n\n## 14.03.2025\nStunde zu Faust.\n", fm: null },
+    { path: "01-Schule/Deutsch/Dramen/Faust.md", content: "Faust, ohne Überschrift.\n\n## 14.03.2026\nStunde zu Faust.\n", fm: null },
   ];
-  const day = new Date("2025-03-14T10:00:00").getTime();
+  const day = new Date("2026-03-14T10:00:00").getTime();
   const dates = new Map(notes.map((n) => [n.path, { ctime: Date.now(), mtime: day }]));
   const others = ["01-Schule/Deutsch/Dramen/bild.png"];
   const plan = buildPlanV2(notes, others, dates, cfg, simpleResolver([...notes.map((n) => n.path), ...others]), { maxLevel: 2, minLen: 20 }, "2026-10-17");
   assert.deepEqual(
     plan.parts.map((p) => [p.basename, p.thema, p.abschnitt, p.geschaetzt, p.teil, p.von]),
     [
-      ["2025-03-14 Deutsch", "Faust", null, true, 1, 2],
-      ["2025-03-14 Deutsch (2)", "Faust", null, false, 2, 2],
-      ["2025-03-14 Deutsch (3)", "Woyzeck", "Woyzeck", true, 1, 2],
-      ["2025-03-14 Deutsch (4)", "Woyzeck", "Doktor", true, 2, 2],
+      ["2026-03-14 Deutsch", "Faust", null, true, 1, 2],
+      ["2026-03-14 Deutsch (2)", "Faust", null, false, 2, 2],
+      ["2026-03-14 Deutsch (3)", "Woyzeck", "Woyzeck", true, 1, 2],
+      ["2026-03-14 Deutsch (4)", "Woyzeck", "Doktor", true, 2, 2],
     ],
   );
   const doktor = plan.parts[3];
-  assert.equal(doktor.path, "01-Schule/Deutsch/11-2/Woyzeck/2025-03-14 Deutsch (4).md");
-  assert.match(doktor.content, /^---\ntyp: tagesnote\nfach: "\[\[Deutsch\]\]"\ndatum: 2025-03-14\nhalbjahr: 11-2\nthema: Woyzeck\nabschnitt: Doktor\nteil: 2\/2\nkapitel: Dramen\nquelle: 01-Schule\/Deutsch\/Dramen\/Woyzeck\.md\ndatum_geschaetzt: true\n/);
-  assert.match(doktor.content, /\[\[2025-03-14 Deutsch \(3\)#Woyzeck\|Woyzeck\]\]/);
+  assert.equal(doktor.path, "01-Schule/Deutsch/12-2/Woyzeck/2026-03-14 Deutsch (4).md");
+  assert.match(doktor.content, /^---\ntyp: tagesnote\nfach: "\[\[Deutsch\]\]"\ndatum: 2026-03-14\nhalbjahr: 12-2\nthema: Woyzeck\nabschnitt: Doktor\nteil: 2\/2\nkapitel: Dramen\nquelle: 01-Schule\/Deutsch\/Dramen\/Woyzeck\.md\ndatum_geschaetzt: true\n/);
+  assert.match(doktor.content, /\[\[2026-03-14 Deutsch \(3\)#Woyzeck\|Woyzeck\]\]/);
   // Alias und fremde Properties nur in Teil 1
   assert.match(plan.parts[2].content, /aliases:\n  - Büchner[\s\S]*banner: x/);
   assert.doesNotMatch(doktor.content, /banner/);
@@ -135,4 +143,26 @@ test("buildPlanV2: Teile mit Datum, eindeutige Namen, Links umgeleitet, Hub und 
   const hub = plan.fachHubs.find((h) => h.fach === "Deutsch")!;
   assert.equal(hub.path, "01-Schule/Deutsch/Deutsch.md");
   assert.equal(hub.create, undefined);
+});
+
+test("buildPlanV2: Notes vor den Halbjahren und in Ordnern früherer Stufen bleiben liegen", () => {
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const notes = [
+    { path: "01-Schule/Mathe/Mathe.md", content: "", fm: null },
+    { path: "01-Schule/Mathe/Alt.md", content: "Aus der 11. Klasse, lang genug.", fm: null },
+    { path: "01-Schule/Mathe/11/IV/Ableitung.md", content: "Ordner 11.", fm: null },
+    { path: "01-Schule/Mathe/Gemischt.md", content: "Alt.\n\n## 14.03.2026\nNeu.", fm: null },
+  ];
+  const t = (d: string) => new Date(`${d}T10:00:00`).getTime();
+  const dates = new Map([
+    ["01-Schule/Mathe/Alt.md", { ctime: t("2025-12-23"), mtime: t("2025-03-01") }],
+    ["01-Schule/Mathe/11/IV/Ableitung.md", { ctime: t("2026-01-10"), mtime: t("2026-01-10") }],
+    ["01-Schule/Mathe/Gemischt.md", { ctime: t("2025-12-23"), mtime: t("2025-03-01") }],
+  ]);
+  const others = ["01-Schule/Mathe/11/IV/bild.png"];
+  const plan = buildPlanV2(notes, others, dates, cfg, simpleResolver(notes.map((n) => n.path)), undefined, "2026-10-17");
+  assert.deepEqual(plan.sources.map((s) => s.from), ["01-Schule/Mathe/Gemischt.md"]);
+  assert.deepEqual(plan.skipped.map((s) => s.path).sort(), ["01-Schule/Mathe/11/IV/Ableitung.md", "01-Schule/Mathe/Alt.md"]);
+  assert.deepEqual(plan.files, []);
+  assert.deepEqual(plan.parts.map((p) => [p.datum, p.geschaetzt]), [["2026-03-14", true], ["2026-03-14", false]]);
 });

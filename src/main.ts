@@ -227,7 +227,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
             : new ConfirmModal(
                 this.app,
                 "Linklisten ersetzen?",
-                `${r.hubs.length} Hubs: Die Linkliste oben wird zu einem eingeklappten Callout „Alte Linkliste“, darüber kommt die Ansicht „Themen nach Kapitel“. ` +
+                `${r.hubs.length} Hubs: Die Linkliste oben wird zu einem eingeklappten Callout „Alte Linkliste“, darüber kommt die Ansicht „Nach Thema“. ` +
                   "Nichts wird gelöscht. Vorher ein Backup anlegen!",
                 () =>
                   void runHubLinks(this.app, this.settings, false).then((x) =>
