@@ -36,14 +36,13 @@ test("pluginBases: alle Bases, schlank, mit Zusatz-Ansichten", () => {
   assert.deepEqual([...m.keys()].sort(), [
     "01-Schule/_Bases/Bereich.base",
     "01-Schule/_Bases/Fach.base",
-    "01-Schule/_Bases/Thema.base",
     "04-Projekte/_Bases/Projekt.base",
     "05-Journal/_Bases/Journal.base",
     "05-Journal/_Bases/Tag.base",
     "Inbox.base",
   ]);
   const fach = m.get("01-Schule/_Bases/Fach.base")!;
-  for (const v of ["Unterthemen", "Abi-relevant", "Themen nach Kapitel", "Begriffe"]) assert.match(fach, new RegExp(`name: ${v}\\n`));
+  for (const v of ["Nach Datum", "Nach Thema", "Nach Kapitel", "Unterthemen", "Abi-relevant", "Datum prüfen", "Begriffe"]) assert.match(fach, new RegExp(`name: ${v}\\n`));
   assert.doesNotMatch(fach, /^ {6}- file\.tags$/m);
   assert.match(m.get("05-Journal/_Bases/Tag.base")!, /DD-MM-YYYY/);
 });

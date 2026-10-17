@@ -34,7 +34,7 @@ test("Bereich einer Note aus ihrer Property", () => {
 
 test("Template ohne Halbjahr und mit anderer Property", () => {
   const out = renderTemplate(DEFAULT_TAGESNOTE_TEMPLATE, { fach: "Bonsai", datum: "2026-10-15", halbjahr: null, themen: [], base: "", property: "projekt" });
-  assert.match(out, /^---\ntyp: tagesnote\nprojekt: "\[\[Bonsai\]\]"\ndatum: 2026-10-15\nthemen:/);
+  assert.match(out, /^---\ntyp: tagesnote\nprojekt: "\[\[Bonsai\]\]"\ndatum: 2026-10-15\nthema: ""/);
   assert.doesNotMatch(out, /halbjahr/);
 });
 
@@ -42,7 +42,7 @@ test("Kategorie-Base: Property und Jahres-Gruppierung", () => {
   const b = kategorieBase("projekt", "jahr");
   assert.match(b, /list\(note\.projekt\)\.contains\(this\.file\.asLink\(\)\)/);
   assert.match(b, /formulas:\n  jahr: date\(datum\)\.year/);
-  assert.match(b, /name: Tagesnotes nach Jahr/);
+  assert.match(b, /name: Nach Jahr\n[\s\S]*property: formula\.jahr/);
   assert.doesNotMatch(b, /halbjahr/);
   assert.doesNotMatch(kategorieBase("fach"), /formulas/);
 });

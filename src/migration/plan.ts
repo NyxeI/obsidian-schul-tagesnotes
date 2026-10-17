@@ -266,7 +266,7 @@ function addContribution(
  * Pfade beim Verschieben nicht an. Für jeden Verweis wird der Zielort nach der Migration bestimmt:
  * verschobene Datei → neuer Pfad; toter Pfad → eindeutige Datei mit gleichem Namen (falls vorhanden).
  */
-function fixInkPaths(plan: MigrationPlan, notes: NoteIn[], otherFiles: string[]): void {
+export function fixInkPaths(plan: Pick<MigrationPlan, "files" | "rewrites" | "warnings">, notes: NoteIn[], otherFiles: string[]): void {
   const moved = new Map(plan.files.map((f) => [f.from, f.to]));
   const byName = new Map<string, string[]>();
   for (const f of otherFiles) {

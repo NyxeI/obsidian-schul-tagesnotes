@@ -1,7 +1,7 @@
 import { type App, TFile, normalizePath } from "obsidian";
 import { applyMentions, buildTerms, findMentions, type Mention, type TermNoteIn } from "./begriffe.ts";
 import { bereichOf, type SchulSettings } from "./defaults.ts";
-import { linkList, linkTarget } from "./paths.ts";
+import { linkList, linkTarget, themaOf } from "./paths.ts";
 import { tagList } from "./tags.ts";
 import { addBegriffeToKategorieBase, addBegriffeToThemaBase } from "./templates.ts";
 
@@ -43,7 +43,7 @@ export async function planBegriffe(app: App, settings: SchulSettings, exclude: s
     plan.links += found.length;
     const cfg = bereichOf(settings, fm);
     const kat = cfg ? linkTarget(fm[cfg.property]) : null;
-    const themen = fm.typ === "thema" ? [f.basename] : linkList(fm.themen);
+    const themen = fm.typ === "thema" ? [f.basename] : themaOf(fm);
     for (const m of found) {
       const t = plan.themen.get(m.term.name) ?? new Set<string>();
       themen.forEach((x) => t.add(x));
@@ -74,7 +74,8 @@ export async function applyBegriffe(app: App, settings: SchulSettings, exclude: 
         const tags = tagList(fm.tags).filter((t) => !t.toLowerCase().startsWith("wissen/"));
         fm.tags = [`wissen/${typ}`, ...tags];
         const themen = plan.themen.get(f.basename);
-        if (themen?.size) fm.themen = [...new Set([...linkList(fm.themen), ...themen])].sort().map((t) => `[[${t}]]`);
+        // Themen sind seit Migration v2 Text (keine Hub-Notes mehr)
+        if (themen?.size) fm.themen = [...new Set([...linkList(fm.themen), ...themen])].sort();
         const kats = plan.kategorien.get(f.basename);
         if (kats?.size) fm.kategorien = [...new Set([...linkList(fm.kategorien), ...kats])].sort().map((t) => `[[${t}]]`);
       });

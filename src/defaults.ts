@@ -102,6 +102,9 @@ export const DEFAULT_SETTINGS: SchulSettings = {
   // Q12 = Schuljahr 2025/26, Q13 = 2026/27 (Bayern, G9) – in den Einstellungen anpassbar.
   halbjahre: parseHalbjahre(
     [
+      // 11. Klasse (Daten geschätzt: Schuljahr 2024/25, Zwischenzeugnis Mitte Februar)
+      "11-1 | 2024-09-10 | 2025-02-14",
+      "11-2 | 2025-02-15 | 2025-09-15",
       "12-1 | 2025-09-16 | 2026-02-13",
       "12-2 | 2026-02-14 | 2026-09-07",
       "13-1 | 2026-09-08 | 2027-02-12",

@@ -10,18 +10,14 @@ function setup() {
   return { app, sorter };
 }
 
-test("Tagesnote wird nach Fach/Halbjahr/Thema verschoben, Tags + Halbjahr gesetzt, Hub angelegt", async () => {
+test("Tagesnote wird nach Fach/Halbjahr/Thema verschoben, Tags + Halbjahr gesetzt, kein Themen-Hub", async () => {
   const { app, sorter } = setup();
-  const f = app.addNote("Neue Notiz.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: ["[[Geraden]]"], tags: ["Abi_Relevant"] });
+  const f = app.addNote("Neue Notiz.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", thema: "Geraden", tags: ["Abi_Relevant"] });
   assert.equal(await sorter.sortFile(f as any), "moved");
   assert.equal(f.path, "01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe.md");
   assert.deepEqual(f.frontmatter!.tags, ["schule/mathe", "mathe/geraden", "Abi_Relevant"]);
   assert.equal(f.frontmatter!.halbjahr, "13-1");
-  const hub = app.vault.getAbstractFileByPath("01-Schule/Mathe/_Themen/Geraden.md") as TFile;
-  assert.ok(hub, "Hub fehlt");
-  assert.equal(hub.frontmatter!.typ, "thema");
-  assert.deepEqual(hub.frontmatter!.tags, ["schule/mathe", "mathe/geraden"]);
-  assert.match(hub.body, /!\[\[Thema\.base\]\]/);
+  assert.equal(app.vault.getAbstractFileByPath("01-Schule/Mathe/_Themen/Geraden.md"), null, "keine Themen-Hubs mehr");
   // Zweiter Lauf ändert nichts mehr
   assert.equal(await sorter.sortFile(f as any), "unchanged");
 });
@@ -44,13 +40,17 @@ test("Vorhandener Hub an anderer Stelle wird wiederverwendet, nicht doppelt ange
   assert.equal(app.vault.getAbstractFileByPath("01-Schule/Mathe/_Themen/Geraden.md"), null);
 });
 
-test("Konflikt: Zieldatei existiert schon → nicht verschieben", async () => {
+test("Name schon vergeben → Suffix (2); vorhandener Suffix bleibt erhalten", async () => {
   const { app, sorter } = setup();
-  app.addNote("01-Schule/Mathe/13-1/_Allgemein/2026-10-15 Mathe.md", { typ: "tagesnote" });
-  const f = app.addNote("y.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", themen: [] });
-  assert.equal(await sorter.sortFile(f as any), "conflict");
-  assert.equal(f.path, "y.md");
-  assert.ok(notices.some((n) => n.includes("existiert schon")));
+  app.addNote("01-Schule/Mathe/13-1/Ebenen/2026-10-15 Mathe.md", { typ: "tagesnote" });
+  const f = app.addNote("y.md", { typ: "tagesnote", fach: "[[Mathe]]", datum: "2026-10-15", thema: "" });
+  assert.equal(await sorter.sortFile(f as any), "moved");
+  assert.equal(f.path, "01-Schule/Mathe/13-1/_Allgemein/2026-10-15 Mathe (2).md");
+  // Themenwechsel: Nummer bleibt, Ordner wechselt
+  f.frontmatter!.thema = "Geraden";
+  assert.equal(await sorter.sortFile(f as any), "moved");
+  assert.equal(f.path, "01-Schule/Mathe/13-1/Geraden/2026-10-15 Mathe (2).md");
+  assert.equal(await sorter.sortFile(f as any), "unchanged");
 });
 
 test("Andere Notes und unvollständige Tagesnotes bleiben unberührt", async () => {

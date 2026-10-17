@@ -1,7 +1,7 @@
 import { type App, TFile, normalizePath } from "obsidian";
 import { tagSlug } from "./config.ts";
 import type { SchulSettings } from "./defaults.ts";
-import { linkList } from "./paths.ts";
+import { themaOf } from "./paths.ts";
 import { extractUnterthemen, normalizeTag, rewriteInlineTags, type TagZuordnung } from "./stichworte.ts";
 import { tagList } from "./tags.ts";
 import { addViews, UNTERTHEMEN_VIEWS_KATEGORIE, UNTERTHEMEN_VIEWS_THEMA } from "./templates.ts";
@@ -68,7 +68,7 @@ export async function runStichworte(app: App, s: SchulSettings, dryRun: boolean)
       const r = rewriteInlineTags(content, map, dub);
       const tags = mergeFmTags(fm?.tags, r.tags, map, dub);
       const isNote = fm?.typ === "thema" || fm?.typ === "tagesnote";
-      const unter = isNote ? extractUnterthemen(content, [f.basename, ...linkList(fm?.themen)]) : [];
+      const unter = isNote ? extractUnterthemen(content, [f.basename, ...themaOf(fm)]) : [];
       if (unter.length) res.unterthemen++;
       for (const t of tags) if (/^(stichwort|person|markierung)\//.test(t)) res.tags.set(t, (res.tags.get(t) ?? 0) + 1);
       const tagsChanged = !sameStrings(fm?.tags, tags) && (tags.length > 0 || fm?.tags !== undefined);
@@ -111,7 +111,7 @@ export async function runStichworte(app: App, s: SchulSettings, dryRun: boolean)
 /** Für den Sorter: Unterthemen einer Hub-/Tagesnote aktuell halten. */
 export async function syncUnterthemen(app: App, file: TFile, fm: Record<string, unknown>): Promise<boolean> {
   if (fm.typ !== "thema" && fm.typ !== "tagesnote") return false;
-  const unter = extractUnterthemen(await app.vault.cachedRead(file), [file.basename, ...linkList(fm.themen)]);
+  const unter = extractUnterthemen(await app.vault.cachedRead(file), [file.basename, ...themaOf(fm)]);
   if (sameStrings(fm.unterthemen ?? [], unter)) return false;
   await app.fileManager.processFrontMatter(file, (m) => {
     if (unter.length) m.unterthemen = unter;

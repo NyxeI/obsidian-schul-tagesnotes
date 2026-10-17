@@ -36,15 +36,6 @@ export class SchulSettingTab extends PluginSettingTab {
           await save();
         }),
       );
-    new Setting(containerEl)
-      .setName("Themen-Hubs automatisch anlegen")
-      .setDesc("Verweist „themen“ auf eine Note, die es nicht gibt, wird sie im Themen-Ordner der Kategorie angelegt.")
-      .addToggle((t) =>
-        t.setValue(s.autoCreateHubs).onChange(async (v) => {
-          s.autoCreateHubs = v;
-          await save();
-        }),
-      );
 
     // ---------- Bereiche ----------
     for (const b of s.bereiche) this.bereichSection(containerEl, b, save);

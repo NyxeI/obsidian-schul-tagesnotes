@@ -1,7 +1,7 @@
 // Linklisten in Kategorie-Hubs (Fach-Hubs) durch eine Base-Ansicht ersetzen – reine Logik.
 // Nichts geht verloren: die alte Liste wandert in einen eingeklappten Callout, die Links (und Backlinks) bleiben.
 
-export const KAPITEL_VIEW = "Themen nach Kapitel";
+export const KAPITEL_VIEW = "Nach Thema";
 export const ALTE_LISTE_TITEL = "Alte Linkliste (vor der Umstellung)";
 
 export interface HubLinkPlan {
@@ -59,28 +59,4 @@ export function planHubLinks(content: string, baseName: string): HubLinkPlan {
     ...lines.slice(end),
   ].join("\n");
   return { content: fm + neu, links, zeilen: alt.length };
-}
-
-/** Base-Ansicht: Themen-Hubs der Kategorie, gruppiert nach altem Kapitel (Ordner vor der Migration). */
-export function kapitelView(property: string): [string, string] {
-  return [
-    KAPITEL_VIEW,
-    `  - type: table
-    name: ${KAPITEL_VIEW}
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "thema"
-    groupBy:
-      property: kapitel
-      direction: ASC
-    order:
-      - file.name
-      - unterthemen
-      - file.mtime
-    sort:
-      - property: file.name
-        direction: ASC
-`,
-  ];
 }

@@ -115,13 +115,13 @@ export class ThemaModal extends SuggestModal<ThemaChoice> {
     this.setPlaceholder(`Thema für ${wo} – tippen für ein neues Thema`);
     this.setInstructions([
       { command: "↑↓", purpose: "wählen" },
-      { command: "↵", purpose: kontext.heuteVorhanden ? "heutige Note öffnen" : "anlegen" },
+      { command: "↵", purpose: "anlegen bzw. öffnen" },
       { command: "esc", purpose: "abbrechen" },
     ]);
     if (kontext.heuteVorhanden) {
       const hint = this.modalEl.createDiv({ cls: "schul-modal-hint" });
       setIcon(hint.createSpan(), "info");
-      hint.createSpan({ text: ` Heute gibt es schon eine Tagesnote in ${fach.name} – sie wird geöffnet, das Thema angehängt.` });
+      hint.createSpan({ text: ` Heute gibt es schon Notes in ${fach.name}: gleiches Thema öffnet die vorhandene, ein neues Thema legt eine weitere an.` });
       this.modalEl.insertBefore(hint, this.modalEl.firstChild);
     }
   }
@@ -141,9 +141,9 @@ export class ThemaModal extends SuggestModal<ThemaChoice> {
   renderSuggestion(choice: ThemaChoice, el: HTMLElement): void {
     const ordner = (t: string | null) => (this.kontext.ordner ? `→ ${this.kontext.ordner(t)}` : "");
     if (choice.kind === "none") return renderRow(el, "circle-dashed", "Ohne Thema", "", ordner(null));
-    if (choice.kind === "new") return renderRow(el, "plus", `Neues Thema: ${choice.name}`, "legt auch den Themen-Hub an", ordner(choice.name));
+    if (choice.kind === "new") return renderRow(el, "plus", `Neues Thema: ${choice.name}`, "", ordner(choice.name));
     const i = this.info.get(choice.name);
-    const sub = i?.anzahl ? `${i.anzahl} Tagesnote${i.anzahl === 1 ? "" : "s"}` : "Themen-Hub";
+    const sub = i?.anzahl ? `${i.anzahl} Note${i.anzahl === 1 ? "" : "s"}` : "";
     const aside = i?.zuletzt ? `zuletzt ${kurzDatum(i.zuletzt, this.kontext.heute ?? "")}` : "";
     renderRow(el, i?.zuletzt ? "history" : "file-text", choice.name, sub, aside);
   }

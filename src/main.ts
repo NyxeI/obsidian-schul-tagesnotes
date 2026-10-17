@@ -1,5 +1,5 @@
 import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath } from "obsidian";
-import { applyMigration, type MigrationResult } from "./migration/apply.ts";
+import { applyMigrationV2, planV2FromVault, type MigrationV2Result } from "./migration/apply2.ts";
 import type { Fach, PathConfig } from "./config.ts";
 import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type KategorieWahl, type ThemaChoice } from "./modals";
 import { Journal } from "./journal-apply.ts";
@@ -10,16 +10,16 @@ import { planBereichHub, type BereichHubPlan } from "./bereichhub.ts";
 import { runHubLinks } from "./hublinks-apply.ts";
 import { runStichworte } from "./stichworte-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
-import { computeTarget, fachFromPath, fileBaseName, findFach, linkList, linkTarget, today, zeitraumFor } from "./paths.ts";
+import { computeTarget, fachFromPath, fileBaseName, findFach, freeTagesnoteName, linkTarget, suffixNumber, themaOf, today, zeitraumFor } from "./paths.ts";
 import { collectThemenInfo, kategorieStats, sortByRecent, type NoteInfo, type ThemaInfo } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
-import { addTagBaseEmbed, DEFAULT_HUB_TEMPLATE, DEFAULT_TAGESNOTE_TEMPLATE, renderTemplate } from "./templates.ts";
+import { addTagBaseEmbed, DEFAULT_TAGESNOTE_TEMPLATE, renderTemplate } from "./templates.ts";
 
 export default class SchulTagesnotesPlugin extends Plugin {
   settings: SchulSettings = DEFAULT_SETTINGS;
   /** Ergebnis der letzten Migration (für Protokoll und Prüfung per CLI). */
-  lastMigration: MigrationResult | null = null;
+  lastMigration: MigrationV2Result | null = null;
   private sorter = new Sorter(this.app, () => this.settings);
   journal = new Journal(this.app, () => this.settings, this.sorter);
 
@@ -61,17 +61,6 @@ export default class SchulTagesnotesPlugin extends Plugin {
       callback: () => void this.sortAll(),
     });
     this.addCommand({
-      id: "themen-hub-anlegen",
-      name: "Themen-Hub anlegen …",
-      callback: () =>
-        new FachModal(this.app, this.kategorien(), ({ cfg, fach }) =>
-          new ThemaModal(this.app, fach, this.themenOf(cfg, fach), (choice) => {
-            if (choice.kind === "none") return;
-            void this.sorter.ensureHub(cfg, fach, choice.name).then((hub) => this.open(hub));
-          }, false).open(),
-        ).open(),
-    });
-    this.addCommand({
       id: "vorlagen-anlegen",
       name: "Templates und Base im Vault anlegen",
       callback: () => void this.writeDefaults(),
@@ -79,19 +68,23 @@ export default class SchulTagesnotesPlugin extends Plugin {
 
     this.addCommand({
       id: "migration-ausfuehren",
-      name: "Migration ausführen … (alte Struktur → Hubs + Tagesnotes)",
+      name: "Migration ausführen … (Themen-Notes → datierte Notes, ein Hub pro Kategorie)",
       callback: () => {
         if (Platform.isMobile) {
           new Notice("Die Migration ist nur am Desktop möglich.");
           return;
         }
         new BereichModal(this.app, this.bereiche(), (cfg) =>
-          new ConfirmModal(
-            this.app,
-            `Migration „${cfg.name}“ ausführen?`,
-            `Alle Notes der Kategorien unter ${cfg.root} werden nach ${cfg.hubFolder} verschoben, datierte Abschnitte werden zu Tagesnotes, Anhänge wandern nach <Kategorie>/attachments. Vorher ein Backup bzw. einen Git-Commit anlegen!`,
-            () => void this.runMigration(cfg),
-          ).open(),
+          void planV2FromVault(this.app, cfg).then((plan) =>
+            new ConfirmModal(
+              this.app,
+              `Migration „${cfg.name}“ ausführen?`,
+              `${plan.sources.length} Notes werden zu ${plan.parts.length} datierten Notes (an #/##-Überschriften und Datumsmarken geteilt; ` +
+                `${plan.parts.filter((p) => p.geschaetzt).length} mit geschätztem Datum). Links in ${plan.linkEdits.size} weiteren Notes werden umgeleitet, ` +
+                `${plan.files.length} Dateien wandern nach <Kategorie>/attachments, die alten Notes kommen in den Papierkorb. Vorher ein Backup anlegen!`,
+              () => void this.runMigration(cfg),
+            ).open(),
+          ),
         ).open();
       },
     });
@@ -319,7 +312,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
         void this.createTagesnote(cfg, fach, choice).catch((e) => new Notice(`Fehler: ${(e as Error).message}`));
       },
       true,
-      { zeitraum, heute, heuteVorhanden: this.findTagesnote(cfg, fach, heute) !== null, ordner },
+      { zeitraum, heute, heuteVorhanden: this.tagesnotesOf(cfg, fach, heute).length > 0, ordner },
     ).open();
   }
 
@@ -353,45 +346,48 @@ export default class SchulTagesnotesPlugin extends Plugin {
   }
 
   /** Vorhandene Tagesnote desselben Fachs und Tages (egal in welchem Themenordner). */
-  private findTagesnote(cfg: PathConfig, fach: Fach, datum: string): TFile | null {
-    const name = fileBaseName(cfg.fileNamePattern, datum, fach);
+  /** Notes desselben Fachs und Tages (egal in welchem Themenordner, mit oder ohne Suffix " (n)"). */
+  private tagesnotesOf(cfg: PathConfig, fach: Fach, datum: string): TFile[] {
+    const base = fileBaseName(cfg.fileNamePattern, datum, fach);
     const prefix = normalizePath(`${cfg.root}/${fach.folder}`) + "/";
+    return this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(prefix) && suffixNumber(f.basename, base) !== null);
+  }
+
+  /** Vorhandene Note desselben Fachs, Tages und Themas (ohne Thema: die ohne Thema). */
+  private findTagesnote(cfg: PathConfig, fach: Fach, datum: string, thema: string | null): TFile | null {
     return (
-      this.app.vault.getMarkdownFiles().find((f) => f.basename === name && f.path.startsWith(prefix)) ?? null
+      this.tagesnotesOf(cfg, fach, datum).find((f) => {
+        const t = themaOf(this.app.metadataCache.getFileCache(f)?.frontmatter)[0] ?? null;
+        return t === thema;
+      }) ?? null
     );
   }
 
   private async createTagesnote(cfg: PathConfig, fach: Fach, choice: ThemaChoice, datum = today()): Promise<void> {
     const thema = choice.kind === "none" ? null : choice.name;
-    const existing = this.findTagesnote(cfg, fach, datum);
+    const existing = this.findTagesnote(cfg, fach, datum, thema);
     if (existing) {
-      if (thema) {
-        await this.app.fileManager.processFrontMatter(existing, (f) => {
-          const themen = linkList(f.themen);
-          if (!themen.includes(thema)) f.themen = [...themen, thema].map((t) => `[[${t}]]`);
-        });
-      }
-      new Notice("Tagesnote existiert schon – geöffnet.");
+      new Notice("Note zu diesem Thema gibt es heute schon – geöffnet.");
       await this.open(existing);
       return;
     }
 
-    const themen = thema ? [thema] : [];
-    const target = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum, themen: themen.map((t) => `[[${t}]]`) }, cfg);
+    const target = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum, thema: thema ?? undefined }, cfg);
     if (!target) throw new Error("Zielpfad konnte nicht bestimmt werden.");
+    const base = fileBaseName(cfg.fileNamePattern, datum, fach);
+    const names = new Set(this.app.vault.getMarkdownFiles().map((f) => f.basename));
+    const path = `${target.folder}/${freeTagesnoteName(base, (n) => names.has(n))}.md`;
     const template = await readTemplate(this.app, cfg.tagesnoteTemplate, DEFAULT_TAGESNOTE_TEMPLATE);
     const content = renderTemplate(template, {
       fach: fach.name,
       datum,
       halbjahr: cfg.zeitraum === "halbjahr" ? target.halbjahr ?? "" : null,
-      themen,
-      base: cfg.themaBasePath.split("/").pop() ?? cfg.themaBasePath,
+      themen: thema ? [thema] : [],
+      base: "",
       property: cfg.property,
     });
     await ensureFolder(this.app, target.folder);
-    const file = await this.app.vault.create(target.path, content);
-    if (thema && this.settings.autoCreateHubs) await this.sorter.ensureHub(cfg, fach, thema, file.path);
-    await this.open(file);
+    await this.open(await this.app.vault.create(path, content));
   }
 
   private async open(file: TFile): Promise<void> {
@@ -454,11 +450,11 @@ export default class SchulTagesnotesPlugin extends Plugin {
     }
   }
 
-  async runMigration(cfg: PathConfig): Promise<MigrationResult> {
+  async runMigration(cfg: PathConfig): Promise<MigrationV2Result> {
     const notice = new Notice("Migration läuft …", 0);
     this.sorter.paused = true;
     try {
-      const result = await applyMigration(this.app, cfg, (m) => notice.setMessage(`Migration ${cfg.name}: ${m}`));
+      const result = await applyMigrationV2(this.app, cfg, (m) => notice.setMessage(`Migration ${cfg.name}: ${m}`));
       this.lastMigration = result;
       notice.setMessage(
         `Migration fertig: ${result.errors.length} Fehler, ${result.newlyUnresolved.length} neu unaufgelöste Links.`,
@@ -501,7 +497,6 @@ export default class SchulTagesnotesPlugin extends Plugin {
       const fixed = (t: string) => t.replace(/\{\{base\}\}/g, baseName).replace(/\{\{property\}\}/g, cfg.property);
       const tagesnote = cfg.zeitraum === "halbjahr" ? DEFAULT_TAGESNOTE_TEMPLATE : DEFAULT_TAGESNOTE_TEMPLATE.replace(/^halbjahr:.*\n/m, "");
       await write(cfg.tagesnoteTemplate, fixed(tagesnote));
-      await write(cfg.hubTemplate, fixed(DEFAULT_HUB_TEMPLATE));
     }
     // Calendar-Plugin öffnet Daily Notes → dort die Tagesübersicht einbetten
     if (daily.template) {

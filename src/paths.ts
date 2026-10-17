@@ -90,7 +90,7 @@ export function computeTarget(fm: Record<string, unknown> | null | undefined, cf
   if (!fach || !datum) return null;
   const zeitraum = zeitraumFor(datum, cfg);
   const halbjahr = cfg.zeitraum === "halbjahr" ? zeitraum : null;
-  const themen = linkList(fm.themen);
+  const themen = themaOf(fm);
   const themaFolder = themen.length ? safeName(themen[0]) || cfg.generalFolder : cfg.generalFolder;
   const folder = [cfg.root, fach.folder, zeitraum ?? cfg.noHalbjahrFolder, themaFolder]
     .map((p) => p.replace(/^\/+|\/+$/g, ""))
@@ -141,4 +141,35 @@ export function freePath(path: string, exists: (p: string) => boolean): string {
     const p = `${m[1]} ${i}${m[2] ?? ""}`;
     if (!exists(p)) return p;
   }
+}
+
+/** Thema einer Note: Property `thema` (Text oder Link), sonst die alte Link-Liste `themen`. */
+export function themaOf(fm: Record<string, unknown> | null | undefined): string[] {
+  if (!fm) return [];
+  const t = fm.thema;
+  if (typeof t === "string" && t.trim()) return [linkTarget(t) ?? t.trim()];
+  if (Array.isArray(t) && t.length) return t.map((x) => linkTarget(x) ?? String(x)).filter(Boolean);
+  return linkList(fm.themen);
+}
+
+/** "2026-10-17 Mathe" + n → "2026-10-17 Mathe" (n = 1) bzw. "2026-10-17 Mathe (2)". */
+export function tagesnoteName(base: string, n: number): string {
+  return n <= 1 ? base : `${base} (${n})`;
+}
+
+/** Nummer im Dateinamen einer Tagesnote: 1 ohne Suffix, n bei " (n)"; null, wenn der Name nicht zu `base` passt. */
+export function suffixNumber(basename: string, base: string): number | null {
+  if (basename === base) return 1;
+  const m = /^(.*) \((\d+)\)$/.exec(basename);
+  return m && m[1] === base ? Number(m[2]) : null;
+}
+
+/** Kleinste Nummer, deren Name noch frei ist. */
+export function freeTagesnoteName(base: string, taken: (name: string) => boolean, start = 1): string {
+  for (let n = start; ; n++) if (!taken(tagesnoteName(base, n))) return tagesnoteName(base, n);
+}
+
+/** Lokales Datum (YYYY-MM-DD) eines Zeitstempels in ms. */
+export function localDate(ms: number): string {
+  return today(new Date(ms));
 }

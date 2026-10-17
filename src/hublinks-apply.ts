@@ -1,7 +1,6 @@
 import { type App, TFile, normalizePath } from "obsidian";
 import type { SchulSettings } from "./defaults.ts";
-import { kapitelView, planHubLinks } from "./hublinks.ts";
-import { addViews } from "./templates.ts";
+import { planHubLinks } from "./hublinks.ts";
 
 export interface HubLinkResult {
   /** umgestellte (bzw. umzustellende) Hubs */
@@ -26,10 +25,6 @@ export async function runHubLinks(app: App, s: SchulSettings, dryRun: boolean): 
       } catch (e) {
         res.errors.push(`${f.path}: ${(e as Error).message}`);
       }
-    }
-    if (any && !dryRun) {
-      const base = app.vault.getAbstractFileByPath(normalizePath(b.kategorieBasePath));
-      if (base instanceof TFile) await app.vault.process(base, (c) => addViews(c, [kapitelView(b.property)]));
     }
   }
   return res;

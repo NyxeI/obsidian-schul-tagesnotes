@@ -5,8 +5,7 @@ typ: tagesnote
 {{property}}: "[[{{fach}}]]"
 datum: {{datum}}
 halbjahr: {{halbjahr}}
-themen:
-{{themen}}
+thema: "{{thema}}"
 tags: []
 ---
 # {{fach}}, {{datum}}
@@ -112,117 +111,55 @@ views:
         direction: ASC
 `;
 
-/** Base für Kategorie-Hubs (Fach, Projekt). Bei Zeitraum "jahr" wird nach Jahr statt Halbjahr gruppiert. */
+/**
+ * Base für Kategorie-Hubs (Fach, Projekt) – seit Migration v2 der einzige Hub: alle datierten Notes der Kategorie.
+ * Bei Zeitraum "jahr" wird nach Jahr statt Halbjahr gruppiert.
+ */
 export function kategorieBase(property: string, zeitraum: "halbjahr" | "jahr" = "halbjahr"): string {
-  const base = `# Wird im Kategorie-Hub (Fach, Projekt) eingebettet: Tagesnotes und Themen-Hubs der Kategorie (über die Property "${property}").
+  const mine = `        - list(note.${property}).contains(this.file.asLink())
+        - typ == "tagesnote"
+`;
+  const view = (name: string, extra: string, order: string[], sort = "      - property: datum\n        direction: DESC\n") =>
+    `  - type: table
+    name: ${name}
+    filters:
+      and:
+${mine}${extra}    order:
+${order.map((o) => `      - ${o}`).join("\n")}
+    sort:
+${sort}`;
+  const group = (prop: string, dir = "ASC") => `    groupBy:\n      property: ${prop}\n      direction: ${dir}\n`;
+  const chrono = "      - property: datum\n        direction: ASC\n      - property: file.name\n        direction: ASC\n";
+  const zeitraumProp = zeitraum === "jahr" ? "formula.jahr" : "halbjahr";
+  const views = [
+    view("Nach Datum", "", ["file.name", "thema", "abschnitt"]),
+    view(zeitraum === "jahr" ? "Nach Jahr" : "Nach Halbjahr", "", ["file.name", "thema", "abschnitt"]).replace("    order:", `${group(zeitraumProp, "DESC")}    order:`),
+    view("Nach Thema", "", ["file.name", "abschnitt", "unterthemen"], chrono).replace("    order:", `${group("thema")}    order:`),
+    view("Nach Kapitel", "", ["file.name", "thema", "abschnitt"], chrono).replace("    order:", `${group("kapitel")}    order:`),
+    view("Unterthemen", "", ["file.name", "thema", "unterthemen"]),
+    view("Abi-relevant", '        - file.hasTag("markierung/abi-relevant")\n', ["file.name", "thema", "abschnitt"]),
+    view("Datum prüfen", "        - datum_geschaetzt == true\n", ["file.name", "datum", "thema", "abschnitt"], chrono),
+  ];
+  return `# Einziger Hub der Kategorie (Fach, Projekt): alle datierten Notes über die Property "${property}".
+# Ansicht über das Dropdown wechseln. "Datum prüfen" zeigt Notes, deren Datum aus dem Dateidatum geschätzt wurde.
+${zeitraum === "jahr" ? "formulas:\n  jahr: date(datum).year\n" : ""}properties:
+  file.name:
+    displayName: Note
+  thema:
+    displayName: Thema
+  abschnitt:
+    displayName: Abschnitt
+  unterthemen:
+    displayName: Unterthemen
+  kapitel:
+    displayName: Kapitel
+  datum:
+    displayName: Datum
 filters:
   and:
     - file.ext == "md"
 views:
-  - type: table
-    name: Tagesnotes nach Datum
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "tagesnote"
-    order:
-      - file.name
-      - datum
-      - halbjahr
-      - themen
-      - file.tags
-    sort:
-      - property: datum
-        direction: DESC
-  - type: table
-    name: Tagesnotes nach Halbjahr
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "tagesnote"
-    groupBy:
-      property: halbjahr
-      direction: DESC
-    order:
-      - file.name
-      - datum
-      - halbjahr
-      - themen
-      - file.tags
-    sort:
-      - property: datum
-        direction: DESC
-  - type: table
-    name: Tagesnotes nach Themen
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "tagesnote"
-    groupBy:
-      property: themen
-      direction: ASC
-    order:
-      - file.name
-      - datum
-      - halbjahr
-      - themen
-      - file.tags
-    sort:
-      - property: datum
-        direction: DESC
-  - type: table
-    name: Tagesnotes nach Tags
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "tagesnote"
-    groupBy:
-      property: file.tags
-      direction: ASC
-    order:
-      - file.name
-      - datum
-      - halbjahr
-      - themen
-      - file.tags
-    sort:
-      - property: datum
-        direction: DESC
-  - type: table
-    name: Themen-Hubs
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "thema"
-    order:
-      - file.name
-      - kapitel
-      - file.tags
-      - file.mtime
-    sort:
-      - property: file.name
-        direction: ASC
-  - type: table
-    name: Themen-Hubs zuletzt geändert
-    filters:
-      and:
-        - list(note.${property}).contains(this.file.asLink())
-        - typ == "thema"
-    order:
-      - file.name
-      - kapitel
-      - file.tags
-      - file.mtime
-    sort:
-      - property: file.mtime
-        direction: DESC
-`;
-  if (zeitraum === "halbjahr") return base;
-  return base
-    .replace("filters:\n", "formulas:\n  jahr: date(datum).year\n\nfilters:\n")
-    .replace("Tagesnotes nach Halbjahr", "Tagesnotes nach Jahr")
-    .replace(/property: halbjahr/g, "property: formula.jahr")
-    .replace(/      - halbjahr\n/g, "");
+${views.join("")}`;
 }
 
 export const DEFAULT_FACH_BASE = kategorieBase("fach");

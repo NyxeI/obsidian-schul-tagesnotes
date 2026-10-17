@@ -1,5 +1,5 @@
 import type { Fach, PathConfig } from "./config.ts";
-import { findFach, linkList, linkTarget, normalizeDate } from "./paths.ts";
+import { findFach, linkTarget, normalizeDate, themaOf } from "./paths.ts";
 
 export interface NoteInfo {
   path: string;
@@ -43,7 +43,7 @@ export function collectThemenInfo(notes: NoteInfo[], fach: Fach, cfg: PathConfig
     if (fm.typ === "tagesnote") {
       if (!sameFach) continue;
       const datum = normalizeDate(fm.datum) ?? "";
-      for (const t of linkList(fm.themen)) {
+      for (const t of themaOf(fm)) {
         anzahl.set(t, (anzahl.get(t) ?? 0) + 1);
         if ((lastUsed.get(t) ?? "") < datum) lastUsed.set(t, datum);
         else note(t, 0);

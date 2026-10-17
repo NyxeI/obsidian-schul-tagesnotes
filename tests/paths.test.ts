@@ -109,12 +109,12 @@ test("Template-Platzhalter", () => {
     fach: "Mathe", datum: "2026-10-15", halbjahr: "12-1", themen: ["Geraden"], base: "Tagesnotes.base",
   });
   assert.match(out, /fach: "\[\[Mathe\]\]"/);
-  assert.match(out, /themen:\n  - "\[\[Geraden\]\]"\n/);
+  assert.match(out, /thema: "Geraden"\n/);
   assert.match(out, /# Mathe, 2026-10-15/);
   const leer = renderTemplate(DEFAULT_TAGESNOTE_TEMPLATE, {
     fach: "Mathe", datum: "2026-10-15", halbjahr: "", themen: [], base: "",
   });
-  assert.match(leer, /themen:\n  \[\]\n/);
+  assert.match(leer, /thema: ""\n/);
 });
 
 test("attachmentTarget: nur Anhänge aus Tagesnote-Ordnern, Ziel <Kat>/attachments/<Zeitraum>", async () => {

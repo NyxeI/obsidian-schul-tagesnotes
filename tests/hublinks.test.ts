@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isLinkList, kapitelView, planHubLinks } from "../src/hublinks.ts";
-import { addViews } from "../src/templates.ts";
+import { isLinkList, planHubLinks } from "../src/hublinks.ts";
 
 const HUB = `---
 typ: fach
@@ -27,7 +26,7 @@ test("Linkliste wird eingeklappt, Themen-Ansicht kommt darüber, Base bleibt", (
 typ: fach
 ---
 ## Themen
-![[Fach.base#Themen nach Kapitel]]
+![[Fach.base#Nach Thema]]
 
 > [!abstract]- Alte Linkliste (vor der Umstellung)
 > ## Stoff
@@ -50,11 +49,4 @@ test("Hubs mit eigenem Inhalt oder ohne Base bleiben unverändert", () => {
   assert.equal(planHubLinks(inhalt, "Projekt.base").content, null);
   assert.equal(planHubLinks("---\ntyp: fach\n---\n[[A]]\n[[B]]\n", "Fach.base").grund, "keine Einbettung ![[Fach.base]]");
   assert.equal(isLinkList(["## X", "---", ""]), false);
-});
-
-test("Kapitel-Ansicht wird nur einmal angehängt", () => {
-  const base = "views:\n  - type: table\n    name: A\n";
-  const once = addViews(base, [kapitelView("fach")]);
-  assert.match(once, /name: Themen nach Kapitel\n[\s\S]*property: kapitel/);
-  assert.equal(addViews(once, [kapitelView("fach")]), once);
 });

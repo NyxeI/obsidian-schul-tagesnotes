@@ -1,8 +1,7 @@
 import { type App, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type { Fach, PathConfig } from "./config.ts";
-import { attachmentTarget, computeTarget, findFach, freePath, hubFolderPath, linkTarget, safeName, zeitraumFor } from "./paths.ts";
+import { attachmentTarget, computeTarget, fileBaseName, findFach, freePath, freeTagesnoteName, linkTarget, suffixNumber, tagesnoteName, zeitraumFor } from "./paths.ts";
 import { deriveTags, sameList } from "./tags.ts";
-import { DEFAULT_HUB_TEMPLATE, renderTemplate } from "./templates.ts";
 import { bereichOf, type SchulSettings } from "./defaults.ts";
 import { syncUnterthemen } from "./stichworte-apply.ts";
 
@@ -70,10 +69,8 @@ export class Sorter {
     const s = this.settings();
     const cfg = bereichOf(s, fm);
     if (!cfg) return "skipped";
-    if (fm.typ === "thema") {
-      const r = await this.syncHub(file, fm, cfg);
-      return (await syncUnterthemen(this.app, file, fm)) && r === "unchanged" ? "updated" : r;
-    }
+    // Alte Themen-Hubs (vor Migration v2): nur Tags synchron halten
+    if (fm.typ === "thema") return this.syncHub(file, fm, cfg);
     if (fm.typ !== "tagesnote") return "skipped";
 
     const target = computeTarget(fm, cfg);
@@ -96,18 +93,21 @@ export class Sorter {
 
       if (await syncUnterthemen(this.app, file, fm)) result = "updated";
 
-      if (s.autoCreateHubs) {
-        for (const thema of target.themen) await this.ensureHub(cfg, target.fach, thema, file.path);
-      }
+      // Dateiname: "<datum> <Fach>", weitere Notes desselben Tages mit " (n)" – vault-weit eindeutig
+      const base = fileBaseName(cfg.fileNamePattern, target.datum, target.fach);
+      const n = suffixNumber(file.basename, base);
+      const nameTaken = (name: string) => this.app.vault.getMarkdownFiles().some((f) => f !== file && f.basename === name);
+      const name = n !== null && !nameTaken(tagesnoteName(base, n)) ? tagesnoteName(base, n) : freeTagesnoteName(base, nameTaken);
+      const wanted = `${target.folder}/${name}.md`;
 
-      if (file.path !== target.path) {
-        if (this.app.vault.getAbstractFileByPath(target.path)) {
-          new Notice(`Nicht verschoben: „${target.path}“ existiert schon.`);
+      if (file.path !== wanted) {
+        if (this.app.vault.getAbstractFileByPath(wanted)) {
+          new Notice(`Nicht verschoben: „${wanted}“ existiert schon.`);
           return "conflict";
         }
         const oldFolder = file.parent;
         await ensureFolder(this.app, target.folder);
-        await this.app.fileManager.renameFile(file, target.path);
+        await this.app.fileManager.renameFile(file, wanted);
         if (oldFolder) await this.removeEmptyFolders(oldFolder, `${cfg.root}/${target.fach.folder}`);
         result = "moved";
       }
@@ -160,24 +160,5 @@ export class Sorter {
       f.tags = tags;
     });
     return "updated";
-  }
-
-  /** Legt den Themen-Hub an, falls kein Link-Ziel mit diesem Namen existiert. Gibt die Datei zurück. */
-  async ensureHub(cfg: PathConfig, fach: Fach, thema: string, sourcePath = ""): Promise<TFile> {
-    const existing = this.app.metadataCache.getFirstLinkpathDest(thema, sourcePath);
-    if (existing) return existing;
-    const folder = hubFolderPath(fach, cfg);
-    const path = normalizePath(`${folder}/${safeName(thema)}.md`);
-    const atPath = this.app.vault.getAbstractFileByPath(path);
-    if (atPath instanceof TFile) return atPath;
-    const template = await readTemplate(this.app, cfg.hubTemplate, DEFAULT_HUB_TEMPLATE);
-    const baseName = cfg.themaBasePath.split("/").pop() ?? cfg.themaBasePath;
-    const content = renderTemplate(template, { fach: fach.name, datum: "", halbjahr: "", themen: [thema], base: baseName, property: cfg.property });
-    await ensureFolder(this.app, folder);
-    const hub = await this.app.vault.create(path, content);
-    await this.app.fileManager.processFrontMatter(hub, (f) => {
-      f.tags = deriveTags(f.tags, fach, [thema], cfg.kategorien, cfg.tagPrefix);
-    });
-    return hub;
   }
 }
