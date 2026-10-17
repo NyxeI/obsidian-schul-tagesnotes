@@ -1,6 +1,6 @@
 {
   "name": "obsidian-schul-tagesnotes",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Daily class notes per subject, filed automatically by subject, term and topic, with hub overviews built on Bases.",
   "main": "main.js",
   "type": "module",
