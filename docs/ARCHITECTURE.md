@@ -17,6 +17,7 @@ SchulSettings
 │   ├── hubFolder, generalFolder, noHalbjahrFolder, fileNamePattern
 │   ├── tagesnoteTemplate, hubTemplate, kategorieBasePath, themaBasePath
 │   └── hubPath                   area hub with the category cards
+│                                 (hubFolder/hubTemplate/themaBasePath are only used for pre-0.3 vaults)
 ├── halbjahre: Halbjahr[]         { name, start, end }, shared by all areas
 ├── journal, tasks                journal categories, TaskNotes folder and sources
 ├── tagZuordnung, begriffeAusschluss
@@ -44,8 +45,11 @@ SchulSettings
 | `sort.ts` | Obsidian | `Sorter`: debounced filing on metadata change, tag and term sync, topic hubs, attachments, empty folders |
 | `modals.ts` | Obsidian | Subject and topic dialogs, list and text prompts |
 | `migration/dates.ts` | pure | Recognising date markers, splitting notes into sections |
-| `migration/plan.ts`, `report.ts` | pure | Migration plan per area; Markdown report |
-| `migration/apply.ts` | Obsidian | Running the plan, comparing unresolved links |
+| `migration/headings.ts` | pure | Splitting at `#`/`##` headings, merging short parts, anchors per part |
+| `migration/links.ts` | pure | Redirecting wikilinks, anchors, Markdown links and canvas nodes to the right part |
+| `migration/plan2.ts`, `report2.ts` | pure | Migration v2 plan (parts, names, dates, link map) and report |
+| `migration/apply2.ts` | Obsidian | Running migration v2, comparing unresolved links |
+| `migration/plan.ts`, `report.ts`, `apply.ts` | pure / Obsidian | Migration v1 (topic hubs); `fixInkPaths` and types are reused by v2 |
 | `journal.ts` / `journal-apply.ts` | pure / Obsidian | Journal paths, filing, new notes, scratchpad archive, journal migration |
 | `tasks.ts` / `tasks-apply.ts` | pure / Obsidian | Checkboxes ↔ TaskNotes (titles, matching, status sync) |
 | `begriffe.ts` / `begriffe-apply.ts` | pure / Obsidian | Glossary terms and people: finding mentions, linking |
@@ -58,17 +62,17 @@ metadataCache "changed"
   └─ Sorter.schedule(file)                  debounce 800 ms per file, paused during migrations
        └─ Sorter.sortFile(file)
             ├─ extra hook → Journal.sort    typ: journal → year/month folder, journal tags
-            ├─ typ: thema                   sync tags, subtopics
+            ├─ typ: thema                   pre-0.3 topic hubs: sync tags only
             └─ typ: tagesnote
-                 ├─ computeTarget(frontmatter, cfg)
+                 ├─ computeTarget(frontmatter, cfg)   folder from thema (fallback: themen)
                  ├─ deriveTags → processFrontMatter (tags, halbjahr)
                  ├─ syncUnterthemen
-                 ├─ ensureHub for each topic (if autoCreateHubs)
+                 ├─ name: "<date> <Category>", keep " (n)", next free n if taken (vault-wide)
                  ├─ renameFile → target path, removeEmptyFolders
                  └─ collectAttachments      <Topic>/attachments/* → <Category>/attachments/<Period>/
 ```
 
-The result is one of `moved | updated | unchanged | skipped | conflict`. If the target file already exists, the note is not moved; a notice is shown instead.
+The result is one of `moved | updated | unchanged | skipped | conflict`. A taken name leads to the next free ` (n)`, not to a conflict.
 
 ## Bases
 
@@ -76,14 +80,13 @@ All bases the plugin owns come from `pluginBases(settings, dailyFormat)`:
 
 | File | Embedded in | Notes |
 |---|---|---|
-| `Thema.base` | topic hubs | Filters use `this.file.asLink()` per view (global `this` filters do not work in Bases) |
-| `Fach.base` / `Projekt.base` | category hubs | `kategorieBase(property, period)`; the year variant uses a formula instead of `halbjahr` |
+| `Fach.base` / `Projekt.base` | category hubs | `kategorieBase(property, period)`: all dated notes of the hub's category; filters use `this.file.asLink()` per view (global `this` filters do not work in Bases); the year variant groups by a formula |
 | `Bereich.base` | area hubs | Card view per area; formulas for cover image, daily-note count and last date via `file.backlinks` |
 | `Journal.base` | journal category hubs | "Archiv" view per category |
 | `Tag.base` | daily note template | `date(datum).format(<daily format>) == this.file.name` |
 | `Inbox.base` | — | orphaned notes |
 
-`slimBase` removes columns the hub already implies (date, term, tags), turns hub lists into list views and sets display names. „Templates und Base im Vault anlegen“ only creates missing files. „Base-Dateien auf Plugin-Stand bringen“ overwrites the files that differ from the current definitions.
+Display names of note properties need the `note.` prefix in the `properties:` block. „Templates und Base im Vault anlegen“ only creates missing files. „Base-Dateien auf Plugin-Stand bringen“ overwrites the files that differ from the current definitions.
 
 ## Styles
 

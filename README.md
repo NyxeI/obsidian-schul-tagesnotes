@@ -1,27 +1,26 @@
 # Schul-Tagesnotes
 
-An [Obsidian](https://obsidian.md) plugin for **one note per subject per day**. Instead of a single note per topic that keeps growing, you write a fresh dated note for every lesson. The plugin creates the note, files it into `subject / term / topic`, keeps its tags in sync and builds overview hubs with [Bases](https://help.obsidian.md/bases).
+An [Obsidian](https://obsidian.md) plugin for **dated notes per subject**. Instead of a single note per topic that keeps growing, you write a fresh dated note for every lesson. The plugin creates the note, files it into `subject / term / topic`, keeps its tags in sync and gives every subject **one hub** with [Bases](https://help.obsidian.md/bases) views over all its notes.
 
 ```
-01-Schule/<Subject>/<Term>/<Topic>/<YYYY-MM-DD> <Subject>.md
+01-Schule/<Subject>/<Term>/<Topic>/<YYYY-MM-DD> <Subject>[ (n)].md
 ```
 
 > The plugin's interface (commands, dialogs, settings) is in **German**, and the defaults fit a German upper school (Bavarian G9, terms `12-1` … `13-2`). Everything, including subjects, terms, folders and templates, can be changed in the settings. Command names below are given in German with a translation.
 
 ## Features
 
-- **Daily notes per subject.** Pick a subject, then a topic. The note is created in the right folder with properties and tags already set. A second call on the same day opens the existing note and adds the topic.
-- **Automatic filing.** If you change `themen` (topics), `datum` (date) or `fach` (subject), the note moves to its new folder about a second later. Tags and term follow, and empty folders are removed.
-- **Hubs with Bases.**
-  - Subject hubs show daily notes by date, term, topic or tag, plus topic hubs grouped by former chapter, subtopics and an "exam-relevant" view.
-  - Topic hubs show every lesson on that topic.
+- **Dated notes per subject.** Pick a subject, then a topic. The note is created in the right folder with properties and tags already set. The same subject and topic on the same day opens the existing note; another topic on the same day gets a second note `… (2)`.
+- **Automatic filing.** If you change `thema` (topic), `datum` (date) or `fach` (subject), the note moves to its new folder about a second later. Tags and term follow, and empty folders are removed.
+- **One hub per subject.** There are no separate topic notes; the topic is a property.
+  - The subject hub shows all notes by date, term, topic or former chapter, plus subtopics, an "exam-relevant" view and "check dates" for estimated dates.
   - The area hub (e.g. `Schule.md`) shows one card per subject with its banner, number of notes and last lesson.
 - **Several areas.** School subjects (with terms) and personal projects (with years as the period) work the same way.
 - **Attachments.** Images pasted into a daily note are collected in `<Subject>/attachments/<Term>/` instead of one folder per topic.
 - **Journal.** Dated journal notes (scratchpad, to-dos, notes, day plans), a pinned scratchpad with an "archive" button and a day overview for the Calendar plugin.
 - **Tasks.** Open checkboxes become [TaskNotes](https://github.com/callumalpass/tasknotes) tasks. The status is synced both ways.
 - **Clean-up tools.** Each one shows a dry run before changing anything:
-  - migrate an existing topic-based vault,
+  - migrate an existing topic-based vault: every note becomes dated notes, split at `#`/`##` headings and date markers, with links redirected,
   - unify inline tags (`stichwort/`, `person/`, `markierung/`),
   - link glossary terms and people,
   - replace hand-written link lists with Bases views.

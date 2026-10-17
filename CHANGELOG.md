@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+**One hub per category.** Topic hubs (`_Themen/`) are gone; the topic is the text property `thema`.
+
+- **Migration v2:** every note of a category becomes one or more dated notes.
+  - Notes are split at date markers and at `#`/`##` headings (`###` stays inside). Sections under 300 characters are merged into the previous one.
+  - Without a date marker the date is estimated from the file (earlier of created/modified) and flagged `datum_geschaetzt: true`.
+  - Notes dated before the configured terms, or in folders of an earlier grade (`11/`), are left untouched.
+  - Wikilinks, heading and block anchors, embeds, aliases, Markdown links (with or without `.md`) and canvas nodes are redirected to the part that contains the target; aliases move to part 1.
+  - Dry run without Obsidian: `node scripts/probelauf2.ts <vault> <report.md>`.
+- **Naming:** several notes of a category on the same day are named `<date> <Subject> (2)`, `(3)` …, unique across the vault. The sorter keeps these numbers.
+- **Subject/project base:** views Nach Datum, Nach Halbjahr/Jahr, Nach Thema, Nach Kapitel, Unterthemen, Abi-relevant, Datum prüfen, Begriffe; German column names.
+- **New note dialog:** the same topic on the same day opens the existing note, a new topic creates another note. "Themen-Hub anlegen" was removed.
+
 ## 0.2.0
 
 First public version.
