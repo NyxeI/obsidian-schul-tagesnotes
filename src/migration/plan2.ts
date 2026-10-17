@@ -4,6 +4,7 @@ import { computeTarget, fileBaseName, freeTagesnoteName, localDate, zeitraumFor 
 import { deriveTags, tagList } from "../tags.ts";
 import { splitFrontmatter, splitSections } from "./dates.ts";
 import { h3Headings, splitHeadings } from "./headings.ts";
+import { bannerFuer, bannerWert } from "../banner.ts";
 import { rewriteLinks, type SplitTarget } from "./links.ts";
 import { fixInkPaths, type FachHubOp, type MoveOp, type NoteIn, type Rewrite } from "./plan.ts";
 
@@ -63,6 +64,8 @@ export interface PlanV2Options {
   minLen: number;
   /** Bis zu dieser Überschriften-Ebene wird geteilt. */
   maxLevel: number;
+  /** Teile ohne eigenes Banner bekommen das Banner ihres Kategorie-Hubs (Standard: an). */
+  fachBanner?: boolean;
 }
 
 export const DEFAULT_V2_OPTIONS: PlanV2Options = { minLen: 300, maxLevel: 2 };
@@ -71,7 +74,7 @@ export const DEFAULT_V2_OPTIONS: PlanV2Options = { minLen: 300, maxLevel: 2 };
 const ALTE_STUFE = /^(?:\d{1,2}|\d{1,2}\. ?Klasse|Klasse ?\d{1,2})$/i;
 
 /** Frontmatter-Schlüssel, die das Plugin setzt – alte Werte dazu werden nicht übernommen. */
-const OWN_KEYS = new Set(["typ", "datum", "halbjahr", "thema", "themen", "abschnitt", "teil", "kapitel", "quelle", "datum_geschaetzt", "unterthemen", "tags", "migriert", "aliases", "alias"]);
+const OWN_KEYS = new Set(["banner", "typ", "datum", "halbjahr", "thema", "themen", "abschnitt", "teil", "kapitel", "quelle", "datum_geschaetzt", "unterthemen", "tags", "migriert", "aliases", "alias"]);
 
 const baseName = (p: string) => p.split("/").pop() ?? p;
 const stem = (p: string) => baseName(p).replace(/\.md$/i, "");
@@ -116,6 +119,8 @@ interface Draft {
   anchors: string[];
   oldFm: Record<string, unknown>;
   first: boolean;
+  /** Banner des Kategorie-Hubs (Fallback) */
+  hubBanner: string | null;
 }
 
 /**
@@ -171,6 +176,7 @@ export function buildPlanV2(
       plan.warnings.push(`Kein Hub für ${fach.name} gefunden – \`${hubPath}\` wird neu angelegt.`);
     }
     const hubSource = hub?.path ?? hubPath;
+    const hubBanner = bannerWert(hub?.fm?.banner);
 
     for (const n of notes.filter((x) => x.path.startsWith(prefix)).sort((a, b) => a.path.localeCompare(b.path))) {
       const rel = n.path.slice(prefix.length);
@@ -214,7 +220,7 @@ export function buildPlanV2(
       if (!all.length) all.push({ heading: null, text: "", anchors: [], datum: datumDatei, geschaetzt: true });
       for (const [i, p] of all.entries()) {
         if (!zeitraumFor(p.datum, cfg)) plan.warnings.push(`\`${n.path}\`: Datum ${p.datum} liegt in keinem Zeitraum → „${cfg.noHalbjahrFolder}“.`);
-        drafts.push({ from: n.path, fach, datum: p.datum, geschaetzt: p.geschaetzt, thema, kapitel, abschnitt: p.heading, text: p.text, anchors: p.anchors, oldFm: fm, first: i === 0 });
+        drafts.push({ from: n.path, fach, datum: p.datum, geschaetzt: p.geschaetzt, thema, kapitel, abschnitt: p.heading, text: p.text, anchors: p.anchors, oldFm: fm, first: i === 0, hubBanner });
       }
       if (all.length > 10) plan.warnings.push(`\`${n.path}\` wird in ${all.length} Notes geteilt.`);
       plan.sources.push({ from: n.path, fach: fach.name, thema, kapitel, parts: all.length, datiert: dated.length });
@@ -286,6 +292,8 @@ export function buildPlanV2(
         ["unterthemen", h3Headings(d.text)],
         ["aliases", aliases],
         ["tags", deriveTags(d.oldFm.tags, d.fach, [d.thema], cfg.kategorien, cfg.tagPrefix)],
+        // Banner in jedem Teil: das der früheren Note, sonst das des Hubs
+        ["banner", bannerFuer(d.oldFm.banner, null, d.hubBanner, opts.fachBanner !== false) ?? undefined],
         ["migriert", true],
         ...extra,
       ]);

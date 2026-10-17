@@ -167,6 +167,19 @@ body.schul-props-aus .schul-note {
 }
 
 /* ---------- 4. Menüleiste in Notes ---------- */
+/* Leiste fest oben: der Inhaltsbereich wird zur Flex-Spalte, damit er nicht um die Höhe der Leiste überläuft */
+.workspace-leaf-content:is(.schul-hub, .schul-note) > .view-content:has(> .schul-notebar) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.workspace-leaf-content:is(.schul-hub, .schul-note) > .view-content:has(> .schul-notebar) > :not(.schul-notebar) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.schul-notebar {
+  flex: 0 0 auto;
+}
 .schul-notebar {
   display: flex;
   align-items: center;
@@ -229,96 +242,317 @@ body.schul-props-aus .schul-note {
 
 /* ---------- 6. Steuer-Panel ---------- */
 .schul-panel {
-  padding: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
   font-size: var(--font-ui-small);
 }
 .schul-panel-kopf {
   display: flex;
-  gap: var(--size-4-2);
   align-items: center;
-  margin-bottom: var(--size-4-2);
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
 }
 .schul-panel-kopf-icon {
+  display: flex;
   color: var(--interactive-accent);
 }
 .schul-panel-titel {
   font-weight: var(--font-semibold);
   font-size: var(--font-ui-medium);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.schul-panel-sub {
+/* Knopf-Kacheln */
+.schul-kacheln {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--size-2-3);
+  margin-bottom: var(--size-4-3);
+}
+.schul-kachel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-2-1);
+  height: auto;
+  padding: var(--size-4-2) var(--size-2-2);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  box-shadow: none;
+}
+.schul-kachel:hover {
+  background: var(--background-modifier-hover);
+}
+.schul-kachel-icon {
+  display: flex;
+  color: var(--interactive-accent);
+}
+.schul-kachel-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.schul-kachel-text {
+  font-size: var(--font-ui-smaller);
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
 }
-.schul-panel-abschnitt {
-  margin: var(--size-4-4) 0 var(--size-2-2);
-  font-size: var(--font-ui-smaller);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
+.schul-kachel-zaehler {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--color-orange);
+  color: var(--text-on-accent);
+}
+.schul-kachel.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.schul-kachel.is-warn .schul-kachel-icon {
+  color: var(--color-orange);
 }
 .schul-panel-zahlen {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--size-2-2);
-  margin-bottom: var(--size-2-2);
+  margin-bottom: var(--size-2-3);
 }
 .schul-panel-zahl {
-  background: var(--background-secondary);
-  border-radius: var(--radius-m);
-  padding: var(--size-2-3);
   text-align: center;
+  padding: var(--size-2-2);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
 }
 .schul-panel-zahl-wert {
   font-size: var(--font-ui-large);
   font-weight: var(--font-semibold);
 }
-.schul-panel-zahl-label {
+.schul-panel-zahl-label,
+.schul-panel-label,
+.schul-panel-leer {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
 }
-.schul-panel-zeile {
+.schul-panel-leer {
+  margin-top: var(--size-2-2);
+}
+.schul-panel-info .schul-panel-zeile {
   display: flex;
   gap: var(--size-4-2);
-  padding: var(--size-2-1) 0;
+  padding: 1px 0;
 }
-.schul-panel-label {
-  color: var(--text-muted);
-  min-width: 5.5em;
+.schul-panel-info .schul-panel-label {
+  min-width: 5em;
 }
 .schul-panel-zeile.schul-warn {
   color: var(--color-orange);
 }
-.schul-panel-aktion {
+/* einklappbare Abschnitte */
+.schul-panel-abschnitt {
   display: flex;
   align-items: center;
-  gap: var(--size-4-2);
-  padding: var(--size-2-2) var(--size-2-3);
-  border-radius: var(--radius-s);
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-3);
+  padding: var(--size-2-2) 0;
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
   cursor: pointer;
 }
-.schul-panel-aktion:hover {
-  background: var(--background-modifier-hover);
-}
-.schul-panel-aktion.is-disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.schul-panel-aktion-icon {
+.schul-panel-pfeil {
   display: flex;
-  color: var(--text-muted);
 }
-.schul-panel-chips {
+.schul-panel-pfeil svg {
+  width: 14px;
+  height: 14px;
+}
+.schul-panel-box {
+  padding: var(--size-2-2) 0;
+}
+.schul-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-2-2);
+  margin-top: var(--size-2-2);
 }
 .schul-chip {
   font-size: var(--font-ui-smaller);
   padding: var(--size-2-1) var(--size-4-2);
   border-radius: var(--radius-l);
   height: auto;
+  box-shadow: none;
 }
-.schul-panel .setting-item {
-  padding: var(--size-2-3) 0;
-  border-top: none;
+.schul-chip.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.schul-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+.schul-chip-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.schul-toggle-reihe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+}
+.schul-toggle {
+  padding: var(--size-2-3);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  opacity: 0.55;
+}
+.schul-toggle.is-active {
+  opacity: 1;
+  color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+.schul-zeile-steuer {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+.schul-zeile-steuer .schul-panel-label {
+  min-width: 6em;
+}
+.schul-zeile-steuer input[type="range"] {
+  flex: 1;
+}
+.schul-segment {
+  display: inline-flex;
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+}
+.schul-segment button {
+  border-radius: 0;
+  box-shadow: none;
+  height: auto;
+  padding: var(--size-2-1) var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  background: transparent;
+}
+.schul-segment button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+/* Themenfarben */
+.schul-farbzeile {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.schul-farbzeile input[type="color"] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.schul-farbzeile input[type="color"].is-standard {
+  opacity: 0.45;
+}
+.schul-farbzeile-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.schul-zurueck {
+  padding: 2px;
+}
+.schul-panel-link {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+  padding: var(--size-2-1) var(--size-2-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.schul-panel-link:hover {
+  background: var(--background-modifier-hover);
+}
+.schul-panel-link .schul-panel-label {
+  margin-left: auto;
+}
+
+/* ---------- 7. Themenköpfe: farbig und größer ---------- */
+.bases-group-heading.schul-gruppe {
+  --schul-g: var(--schul-gruppe, var(--schul-gruppe-standard, var(--interactive-accent)));
+  border-left: 4px solid var(--schul-g);
+  background: color-mix(in srgb, var(--schul-g) 14%, transparent) !important;
+  border-radius: var(--radius-s);
+  padding-inline-start: var(--size-4-2) !important;
+  padding-block: 0 !important;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+.bases-group-heading.schul-gruppe .bases-group-value {
+  font-size: calc(var(--font-ui-medium) * var(--schul-gruppen-groesse, 1.25));
+  line-height: 1.15;
+  font-weight: var(--font-bold);
+  color: var(--text-normal);
+}
+.bases-group-heading.schul-gruppe .bases-group-property {
+  display: none;
+}
+/* die Zeilen einer Gruppe bekommen einen feinen Farbstreifen */
+.schul-gruppe-tabelle .bases-tbody {
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--schul-gruppe, var(--schul-gruppe-standard, var(--interactive-accent))) 45%, transparent);
+}
+/* Farbdialog */
+.schul-farben {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.schul-farbe {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--schul-farbe);
+  box-shadow: none;
+}
+.schul-farbe.is-active {
+  outline: 2px solid var(--text-normal);
+  outline-offset: 2px;
+}
+
+/* ---------- 8. Tabellen ohne Seitenscroll ---------- */
+/* Zellen der Plugin-Bases dürfen umbrechen (die Zeilenhöhe kommt aus der Base: medium/tall) */
+:is(.bases-embed[src^="Fach.base"], .bases-embed[src^="Projekt.base"]) .bases-td {
+  white-space: normal;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+:is(.bases-embed[src^="Fach.base"], .bases-embed[src^="Projekt.base"]) .bases-td :is(.multi-select-container, .value-list-container) {
+  flex-wrap: wrap;
+}
+:is(.bases-embed[src^="Fach.base"], .bases-embed[src^="Projekt.base"]) .bases-table-container {
+  overflow-x: hidden;
+}
+/* Volle Breite: Einbettung über die Lesebreite hinaus */
+body.schul-breit .schul-hub :is(.bases-embed[src^="Fach.base"], .bases-embed[src^="Projekt.base"]) {
+  width: min(1120px, calc(100vw - 120px));
+  max-width: none;
+  margin-inline-start: calc((var(--file-line-width) - min(1120px, calc(100vw - 120px))) / 2);
 }

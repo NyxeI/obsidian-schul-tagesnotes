@@ -1,5 +1,6 @@
 import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath } from "obsidian";
 import { applyMigrationV2, planV2FromVault, type MigrationV2Result } from "./migration/apply2.ts";
+import { DEFAULT_V2_OPTIONS } from "./migration/plan2.ts";
 import type { Fach, PathConfig } from "./config.ts";
 import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type KategorieWahl, type ThemaChoice } from "./modals";
 import { Journal } from "./journal-apply.ts";
@@ -13,6 +14,8 @@ import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, freeTagesnoteName, linkTarget, suffixNumber, themaOf, today, zeitraumFor } from "./paths.ts";
 import { notesAmTag, shiftDate } from "./ansicht.ts";
 import { Anzeige, SCHALTER } from "./anzeige.ts";
+import { bannerWert, planBanner, type BannerEintrag } from "./banner.ts";
+import { Gruppen } from "./gruppen.ts";
 import { PANEL_VIEW, SchulPanel } from "./panel.ts";
 import { collectThemenInfo, kategorieStats, sortByRecent, type NoteInfo, type ThemaInfo } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
@@ -26,6 +29,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
   private sorter = new Sorter(this.app, () => this.settings);
   journal = new Journal(this.app, () => this.settings, this.sorter);
   anzeige = new Anzeige(this);
+  gruppen: Gruppen | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -96,7 +100,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
           return;
         }
         new BereichModal(this.app, this.bereiche(), (cfg) =>
-          void planV2FromVault(this.app, cfg).then((plan) =>
+          void planV2FromVault(this.app, cfg, { ...DEFAULT_V2_OPTIONS, fachBanner: this.settings.anzeige.fachBanner }).then((plan) =>
             new ConfirmModal(
               this.app,
               `Migration „${cfg.name}“ ausführen?`,
@@ -237,6 +241,30 @@ export default class SchulTagesnotesPlugin extends Plugin {
         ),
     });
 
+    this.addCommand({
+      id: "banner-nachtragen",
+      name: "Banner nachtragen … (aus der früheren Note bzw. vom Fach-Hub)",
+      callback: () => {
+        const plan = this.bannerPlan();
+        if (!plan.length) return void new Notice("Alle datierten Notes haben schon ein Banner.");
+        const q = plan.filter((e) => e.herkunft === "quelle").length;
+        new ConfirmModal(
+          this.app,
+          "Banner nachtragen?",
+          `${plan.length} datierte Notes bekommen ein Banner: ${q} von ihrer früheren Themen-Note, ${plan.length - q} vom Fach-Hub` +
+            (this.settings.anzeige.fachBanner ? "" : " (Fach-Banner ist ausgeschaltet)") + ". Nur die Property „banner“ wird gesetzt.",
+          () =>
+            void (async () => {
+              for (const e of plan) {
+                const f = this.app.vault.getAbstractFileByPath(e.path);
+                if (f instanceof TFile) await this.app.fileManager.processFrontMatter(f, (fm) => (fm.banner = e.banner));
+              }
+              new Notice(`Banner gesetzt: ${plan.length} Notes.`);
+            })(),
+        ).open();
+      },
+    });
+
     // ---------- Linklisten in Kategorie-Hubs ----------
     this.addCommand({
       id: "hub-linklisten-ersetzen",
@@ -287,6 +315,8 @@ export default class SchulTagesnotesPlugin extends Plugin {
       );
       this.registerEvent(this.app.workspace.on("layout-change", () => this.anzeige.refresh()));
       this.registerEvent(this.app.workspace.on("file-open", () => this.anzeige.refresh()));
+      this.gruppen = new Gruppen(this);
+      this.gruppen.start();
       this.anzeige.apply();
     });
   }
@@ -299,6 +329,18 @@ export default class SchulTagesnotesPlugin extends Plugin {
       this.anzeigeTimer = null;
       this.anzeige.refresh();
     }, 500);
+  }
+
+  /** Banner des Kategorie-Hubs (Property "banner"), falls vorhanden. */
+  hubBanner(cfg: PathConfig, fachName: string): string | null {
+    const hub = this.app.vault.getAbstractFileByPath(normalizePath(`${cfg.root}/${cfg.kategorien.find((k) => k.name === fachName)?.folder ?? fachName}/${fachName}.md`));
+    return hub instanceof TFile ? bannerWert(this.app.metadataCache.getFileCache(hub)?.frontmatter?.banner) : null;
+  }
+
+  /** Datierte Notes aller Bereiche, die ein Banner bekommen sollen. */
+  bannerPlan(): BannerEintrag[] {
+    const notes = this.noteInfos();
+    return this.bereiche().flatMap((cfg) => planBanner(notes, cfg, (f) => this.hubBanner(cfg, f), this.settings.anzeige.fachBanner));
   }
 
   /** Steuer-Panel in der rechten Seitenleiste öffnen (oder zeigen). */
@@ -333,6 +375,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.gruppen?.stop();
     this.anzeige.clear();
     this.sorter.cancelAll();
   }
@@ -474,7 +517,10 @@ export default class SchulTagesnotesPlugin extends Plugin {
       property: cfg.property,
     });
     await ensureFolder(this.app, target.folder);
-    await this.open(await this.app.vault.create(path, content));
+    const neu = await this.app.vault.create(path, content);
+    const banner = this.settings.anzeige.fachBanner ? this.hubBanner(cfg, fach.name) : null;
+    if (banner) await this.app.fileManager.processFrontMatter(neu, (fm) => (fm.banner = banner));
+    await this.open(neu);
   }
 
   async open(file: TFile): Promise<void> {
@@ -541,7 +587,10 @@ export default class SchulTagesnotesPlugin extends Plugin {
     const notice = new Notice("Migration läuft …", 0);
     this.sorter.paused = true;
     try {
-      const result = await applyMigrationV2(this.app, cfg, (m) => notice.setMessage(`Migration ${cfg.name}: ${m}`));
+      const result = await applyMigrationV2(this.app, cfg, (m) => notice.setMessage(`Migration ${cfg.name}: ${m}`), {
+        ...DEFAULT_V2_OPTIONS,
+        fachBanner: this.settings.anzeige.fachBanner,
+      });
       this.lastMigration = result;
       notice.setMessage(
         `Migration fertig: ${result.errors.length} Fehler, ${result.newlyUnresolved.length} neu unaufgelöste Links.`,

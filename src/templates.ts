@@ -1,4 +1,5 @@
 // Standard-Templates und Platzhalter-Ersetzung (ohne Obsidian-Abhängigkeit).
+import { spaltenBreiten, tabellenBreite } from "./spalten.ts";
 
 export const DEFAULT_TAGESNOTE_TEMPLATE = `---
 typ: tagesnote
@@ -122,6 +123,11 @@ export function kategorieBase(property: string, zeitraum: "halbjahr" | "jahr" = 
   const view = (name: string, extra: string, order: string[], sort = "      - property: datum\n        direction: DESC\n") =>
     `  - type: table
     name: ${name}
+    rowHeight: medium
+    columnSize:
+${Object.entries(spaltenBreiten(order, tabellenBreite(false)))
+  .map(([k, w]) => `      ${k}: ${w}`)
+  .join("\n")}
     filters:
       and:
 ${mine}${extra}    order:

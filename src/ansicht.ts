@@ -3,6 +3,8 @@ import type { Fach, PathConfig } from "./config.ts";
 import { findFach, linkTarget, normalizeDate, suffixNumber, themaOf } from "./paths.ts";
 import type { NoteInfo } from "./themen.ts";
 
+export type Zeilenhoehe = "" | "medium" | "tall" | "extra";
+
 export interface AnzeigeSettings {
   /** Kompakte Plugin-Bases (Toolbar/Rahmen) */
   kompakt: boolean;
@@ -12,9 +14,61 @@ export interface AnzeigeSettings {
   propertiesInNotes: boolean;
   /** Menüleiste oben in Hubs und datierten Notes */
   menueleiste: boolean;
+  /** Plugin-Bases über die Lesebreite hinaus auf volle Fensterbreite */
+  volleBreite: boolean;
+  /** Notes ohne eigenes Banner bekommen das Banner ihres Fach-Hubs */
+  fachBanner: boolean;
+  /** Zeilenhöhe der Tabellen (Bases: "", medium, tall, extra) */
+  zeilenhoehe: Zeilenhoehe;
+  /** Schriftgröße der Themenköpfe als Faktor (1 = normal) */
+  gruppenGroesse: number;
+  /** Standardfarbe der Themenköpfe ("" = Akzentfarbe) */
+  gruppenFarbe: string;
+  /** Farbe je Thema: Schlüssel "<Kategorie>::<Thema>" */
+  themaFarben: Record<string, string>;
+  /** Knöpfe der Menüleiste: ID → sichtbar */
+  leisteKnoepfe: Record<string, boolean>;
 }
 
-export const DEFAULT_ANZEIGE: AnzeigeSettings = { kompakt: true, tasknotesInHubs: false, propertiesInNotes: true, menueleiste: true };
+/** Schalter, die per Klick umgeschaltet werden (boolesche Felder). */
+export type AnzeigeSchalter = "kompakt" | "tasknotesInHubs" | "propertiesInNotes" | "menueleiste" | "volleBreite" | "fachBanner";
+
+export const DEFAULT_ANZEIGE: AnzeigeSettings = {
+  kompakt: true,
+  tasknotesInHubs: false,
+  propertiesInNotes: true,
+  menueleiste: true,
+  volleBreite: false,
+  fachBanner: true,
+  zeilenhoehe: "medium",
+  gruppenGroesse: 1.25,
+  gruppenFarbe: "",
+  themaFarben: {},
+  leisteKnoepfe: {},
+};
+
+/** Schlüssel für die Farbe eines Themas. */
+export function farbSchluessel(kategorie: string, thema: string): string {
+  return `${kategorie}::${thema}`;
+}
+
+/** Farbe eines Themenkopfs: eigene Themenfarbe, sonst Standardfarbe, sonst null (= Akzentfarbe aus dem Theme). */
+export function themaFarbe(a: AnzeigeSettings, kategorie: string, thema: string): string | null {
+  return a.themaFarben[farbSchluessel(kategorie, thema)] || a.gruppenFarbe || null;
+}
+
+/** "#abc" → "#aabbcc"; ungültig → null. */
+export function normalisiereFarbe(farbe: string): string | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(farbe.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return `#${h.toLowerCase()}`;
+}
+
+/** Knopf der Menüleiste sichtbar? (nicht eingetragen = sichtbar) */
+export function knopfSichtbar(a: AnzeigeSettings, id: string): boolean {
+  return a.leisteKnoepfe[id] !== false;
+}
 
 /** Klassen am <body>, die styles.css auswertet. */
 export function bodyClasses(a: AnzeigeSettings): Record<string, boolean> {
@@ -22,6 +76,7 @@ export function bodyClasses(a: AnzeigeSettings): Record<string, boolean> {
     "schul-kompakt": a.kompakt,
     "schul-tn-aus": !a.tasknotesInHubs,
     "schul-props-aus": !a.propertiesInNotes,
+    "schul-breit": a.volleBreite,
   };
 }
 

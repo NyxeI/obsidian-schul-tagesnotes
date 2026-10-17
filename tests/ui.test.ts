@@ -85,7 +85,7 @@ test("Dialog-Daten: Themen mit Anzahl/letztem Datum, Fächer nach letzter Benutz
 test("Ansicht: Schalter-Klassen, Art der Note, Nachbarn im Thema, Hub-Zahlen, Notes am Tag", async () => {
   const { bodyClasses, noteArt, shiftDate, nachbarnImThema, hubStats, notesAmTag, DEFAULT_ANZEIGE } = await import("../src/ansicht.ts");
   const { pathConfig } = await import("../src/defaults.ts");
-  assert.deepEqual(bodyClasses(DEFAULT_ANZEIGE), { "schul-kompakt": true, "schul-tn-aus": true, "schul-props-aus": false });
+  assert.deepEqual(bodyClasses(DEFAULT_ANZEIGE), { "schul-kompakt": true, "schul-tn-aus": true, "schul-props-aus": false, "schul-breit": false });
   assert.equal(noteArt({ typ: "fach" }, ["fach", "projekt"]), "hub");
   assert.equal(noteArt({ typ: "tagesnote" }, ["fach"]), "note");
   assert.equal(noteArt({ typ: "journal" }, ["fach"]), null);
@@ -106,4 +106,55 @@ test("Ansicht: Schalter-Klassen, Art der Note, Nachbarn im Thema, Hub-Zahlen, No
   const mathe = cfg.kategorien.find((k) => k.name === "Mathe")!;
   assert.deepEqual(hubStats(notes, cfg, mathe), { notes: 4, themen: 2, geschaetzt: 1, erste: "2026-03-01", letzte: "2026-03-05" });
   assert.deepEqual(notesAmTag(notes, cfg, mathe, "2026-03-02").map((x) => x.basename), ["2026-03-02 Mathe", "2026-03-02 Mathe (2)"]);
+});
+
+test("Spalten: Breiten passen in die Notizbreite, Listen bekommen mehr Platz", async () => {
+  const { spaltenBreiten, setzeSpalten, setzeTabellen, spaltenId } = await import("../src/spalten.ts");
+  assert.equal(spaltenId("thema"), "note.thema");
+  assert.equal(spaltenId("file.tags"), "file.tags");
+  const b = spaltenBreiten(["file.name", "abschnitt", "unterthemen"], 690);
+  assert.equal(b["file.name"], 175);
+  assert.ok(b["note.unterthemen"] > b["note.abschnitt"]);
+  assert.ok(Object.values(b).reduce((x, y) => x + y, 0) <= 690);
+  const base = { views: [{ type: "table", name: "Nach Thema", order: ["file.name", "abschnitt"] }, { type: "list", name: "L", order: ["file.name"] }] };
+  assert.equal(setzeSpalten(base, "Nach Thema", ["thema", "datum"], 690), true);
+  assert.deepEqual(base.views[0].order, ["file.name", "thema", "datum"]);
+  assert.equal((base.views[0] as any).columnSize["note.datum"], 125);
+  assert.equal(setzeSpalten(base, "Fehlt", [], 690), false);
+  setzeTabellen(base, "tall", 1100);
+  assert.equal((base.views[0] as any).rowHeight, "tall");
+  assert.equal((base.views[1] as any).rowHeight, undefined, "Listen bleiben unverändert");
+});
+
+test("Banner: eigenes, sonst aus der früheren Note, sonst vom Fach-Hub", async () => {
+  const { bannerFuer, planBanner } = await import("../src/banner.ts");
+  const { pathConfig } = await import("../src/defaults.ts");
+  assert.equal(bannerFuer("eigen", "q", "h", true), "eigen");
+  assert.equal(bannerFuer(undefined, "q", "h", true), "q");
+  assert.equal(bannerFuer("", null, "h", true), "h");
+  assert.equal(bannerFuer(null, null, "h", false), null);
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const n = (path: string, fm: Record<string, unknown>) => ({ path, basename: path, mtime: 0, fm: { typ: "tagesnote", fach: "[[Mathe]]", ...fm } });
+  const plan = planBanner(
+    [n("a1", { quelle: "Q.md", banner: "[[b.png]]" }), n("a2", { quelle: "Q.md" }), n("b1", { quelle: "R.md" }), n("c1", { banner: "x" })],
+    cfg,
+    (f) => (f === "Mathe" ? "[[mathe.png]]" : null),
+    true,
+  );
+  assert.deepEqual(plan, [
+    { path: "a2", banner: "[[b.png]]", herkunft: "quelle" },
+    { path: "b1", banner: "[[mathe.png]]", herkunft: "hub" },
+  ]);
+});
+
+test("Farben: Schlüssel, Standard und eigene Themenfarbe, Normalisierung", async () => {
+  const { themaFarbe, normalisiereFarbe, farbSchluessel, knopfSichtbar, DEFAULT_ANZEIGE } = await import("../src/ansicht.ts");
+  const a = { ...DEFAULT_ANZEIGE, themaFarben: { [farbSchluessel("Mathe", "Vektoren")]: "#ff0000" } };
+  assert.equal(themaFarbe(a, "Mathe", "Vektoren"), "#ff0000");
+  assert.equal(themaFarbe(a, "Mathe", "Ebenen"), null, "ohne Standardfarbe: Akzentfarbe des Themes");
+  assert.equal(themaFarbe({ ...a, gruppenFarbe: "#00ff00" }, "Mathe", "Ebenen"), "#00ff00");
+  assert.equal(normalisiereFarbe("#AbC"), "#aabbcc");
+  assert.equal(normalisiereFarbe("rot"), null);
+  assert.equal(knopfSichtbar(a, "neu"), true);
+  assert.equal(knopfSichtbar({ ...a, leisteKnoepfe: { neu: false } }, "neu"), false);
 });

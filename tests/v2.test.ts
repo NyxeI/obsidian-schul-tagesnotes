@@ -137,7 +137,9 @@ test("buildPlanV2: Teile mit Datum, eindeutige Namen, Links umgeleitet, Hub und 
   assert.match(doktor.content, /\[\[2026-03-14 Deutsch \(3\)#Woyzeck\|Woyzeck\]\]/);
   // Alias und fremde Properties nur in Teil 1
   assert.match(plan.parts[2].content, /aliases:\n  - Büchner[\s\S]*banner: x/);
-  assert.doesNotMatch(doktor.content, /banner/);
+  // Banner erben alle Teile, Aliase nur Teil 1
+  assert.match(doktor.content, /banner: x/);
+  assert.doesNotMatch(doktor.content, /Büchner/);
   assert.equal(plan.linkEdits.get("01-Schule/Deutsch/Deutsch.md"), 1);
   assert.deepEqual(plan.files, [{ from: "01-Schule/Deutsch/Dramen/bild.png", to: "01-Schule/Deutsch/attachments/Dramen/bild.png" }]);
   const hub = plan.fachHubs.find((h) => h.fach === "Deutsch")!;
