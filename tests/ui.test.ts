@@ -52,7 +52,8 @@ test("mergeSettings ergänzt neue Bereichsfelder aus den Standardwerten", () => 
   for (const b of alt) delete (b as any).hubPath;
   const s = mergeSettings({ bereiche: alt });
   assert.equal(s.bereiche[0].hubPath, "01-Schule/Schule.md");
-  assert.equal(s.kompakt, true);
+  assert.equal(s.anzeige.kompakt, true);
+  assert.equal(mergeSettings({ kompakt: false }).anzeige.kompakt, false, "alter Schalter wird übernommen");
 });
 
 test("Dialog-Daten: Themen mit Anzahl/letztem Datum, Fächer nach letzter Benutzung", async () => {
@@ -79,4 +80,30 @@ test("Dialog-Daten: Themen mit Anzahl/letztem Datum, Fächer nach letzter Benutz
   assert.equal(kurzDatum("2026-10-15", "2026-10-16"), "15.10.");
   assert.equal(kurzDatum("2025-03-02", "2026-10-16"), "02.03.25");
   assert.equal(kurzDatum("", "2026-10-16"), "");
+});
+
+test("Ansicht: Schalter-Klassen, Art der Note, Nachbarn im Thema, Hub-Zahlen, Notes am Tag", async () => {
+  const { bodyClasses, noteArt, shiftDate, nachbarnImThema, hubStats, notesAmTag, DEFAULT_ANZEIGE } = await import("../src/ansicht.ts");
+  const { pathConfig } = await import("../src/defaults.ts");
+  assert.deepEqual(bodyClasses(DEFAULT_ANZEIGE), { "schul-kompakt": true, "schul-tn-aus": true, "schul-props-aus": false });
+  assert.equal(noteArt({ typ: "fach" }, ["fach", "projekt"]), "hub");
+  assert.equal(noteArt({ typ: "tagesnote" }, ["fach"]), "note");
+  assert.equal(noteArt({ typ: "journal" }, ["fach"]), null);
+  assert.equal(shiftDate("2026-03-01", -1), "2026-02-28");
+  assert.equal(shiftDate("2026-12-31", 1), "2027-01-01");
+  const cfg = pathConfig(DEFAULT_SETTINGS, DEFAULT_SETTINGS.bereiche[0]);
+  const n = (name: string, datum: string, thema: string, extra: Record<string, unknown> = {}) => ({
+    path: `01-Schule/Mathe/x/${name}.md`, basename: name, mtime: 0, fm: { typ: "tagesnote", fach: "[[Mathe]]", datum, thema, ...extra },
+  });
+  const notes = [
+    n("2026-03-02 Mathe (2)", "2026-03-02", "Geraden"),
+    n("2026-03-02 Mathe", "2026-03-02", "Geraden", { datum_geschaetzt: true }),
+    n("2026-03-01 Mathe", "2026-03-01", "Ebenen"),
+    n("2026-03-05 Mathe", "2026-03-05", "Geraden"),
+  ];
+  const nb = nachbarnImThema(notes, cfg, notes[0]);
+  assert.deepEqual(nb, { prev: "01-Schule/Mathe/x/2026-03-02 Mathe.md", next: "01-Schule/Mathe/x/2026-03-05 Mathe.md", pos: 2, von: 3 });
+  const mathe = cfg.kategorien.find((k) => k.name === "Mathe")!;
+  assert.deepEqual(hubStats(notes, cfg, mathe), { notes: 4, themen: 2, geschaetzt: 1, erste: "2026-03-01", letzte: "2026-03-05" });
+  assert.deepEqual(notesAmTag(notes, cfg, mathe, "2026-03-02").map((x) => x.basename), ["2026-03-02 Mathe", "2026-03-02 Mathe (2)"]);
 });

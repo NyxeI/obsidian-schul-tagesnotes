@@ -11,6 +11,9 @@ import { runHubLinks } from "./hublinks-apply.ts";
 import { runStichworte } from "./stichworte-apply.ts";
 import { bereichOf, pathConfig } from "./defaults.ts";
 import { computeTarget, fachFromPath, fileBaseName, findFach, freeTagesnoteName, linkTarget, suffixNumber, themaOf, today, zeitraumFor } from "./paths.ts";
+import { notesAmTag, shiftDate } from "./ansicht.ts";
+import { Anzeige, SCHALTER } from "./anzeige.ts";
+import { PANEL_VIEW, SchulPanel } from "./panel.ts";
 import { collectThemenInfo, kategorieStats, sortByRecent, type NoteInfo, type ThemaInfo } from "./themen.ts";
 import { DEFAULT_SETTINGS, SchulSettingTab, mergeSettings, type SchulSettings } from "./settings";
 import { Sorter, ensureFolder, readTemplate, type SortResult } from "./sort";
@@ -22,14 +25,32 @@ export default class SchulTagesnotesPlugin extends Plugin {
   lastMigration: MigrationV2Result | null = null;
   private sorter = new Sorter(this.app, () => this.settings);
   journal = new Journal(this.app, () => this.settings, this.sorter);
+  anzeige = new Anzeige(this);
 
   async onload(): Promise<void> {
     await this.loadSettings();
-    document.body.toggleClass("schul-kompakt", this.settings.kompakt);
+    this.anzeige.apply();
     this.addSettingTab(new SchulSettingTab(this.app, this));
     this.sorter.extra = (file, fm) => this.journal.sort(file, fm);
 
     this.addRibbonIcon("calendar-plus", "Neue Tagesnote", () => this.pickFachThenThema());
+    this.registerView(PANEL_VIEW, (leaf) => new SchulPanel(leaf, this));
+    this.addRibbonIcon("sliders-horizontal", "Schul-Panel", () => void this.openPanel());
+
+    // ---------- Anzeige ----------
+    this.addCommand({ id: "panel-oeffnen", name: "Schul-Panel öffnen", callback: () => void this.openPanel() });
+    for (const sch of SCHALTER) {
+      this.addCommand({ id: `anzeige-${sch.key}`, name: `Anzeige umschalten: ${sch.name}`, callback: () => void this.anzeige.toggle(sch.key) });
+    }
+    this.addCommand({
+      id: "tagesnote-anderes-datum",
+      name: "Tagesnote für anderes Datum …",
+      callback: () => {
+        const wahl = this.kategorieOfActiveFile();
+        if (wahl) this.pickThema(wahl, { datumFokus: true });
+        else new FachModal(this.app, this.kategorien(), (w) => this.pickThema(w, { datumFokus: true }), today()).open();
+      },
+    });
 
     this.addCommand({
       id: "neue-tagesnote",
@@ -261,13 +282,55 @@ export default class SchulTagesnotesPlugin extends Plugin {
       this.registerEvent(
         this.app.metadataCache.on("changed", (file) => {
           if (this.settings.autoSort) this.sorter.schedule(file);
+          this.refreshAnzeigeBald();
         }),
       );
+      this.registerEvent(this.app.workspace.on("layout-change", () => this.anzeige.refresh()));
+      this.registerEvent(this.app.workspace.on("file-open", () => this.anzeige.refresh()));
+      this.anzeige.apply();
     });
   }
 
+  private anzeigeTimer: number | null = null;
+  /** Menüleisten nach Metadaten-Änderungen gebündelt neu bauen. */
+  private refreshAnzeigeBald(): void {
+    if (this.anzeigeTimer !== null) window.clearTimeout(this.anzeigeTimer);
+    this.anzeigeTimer = window.setTimeout(() => {
+      this.anzeigeTimer = null;
+      this.anzeige.refresh();
+    }, 500);
+  }
+
+  /** Steuer-Panel in der rechten Seitenleiste öffnen (oder zeigen). */
+  async openPanel(): Promise<void> {
+    const ws = this.app.workspace;
+    let leaf = ws.getLeavesOfType(PANEL_VIEW)[0];
+    if (!leaf) {
+      leaf = ws.getRightLeaf(false)!;
+      await leaf.setViewState({ type: PANEL_VIEW, active: true });
+    }
+    await ws.revealLeaf(leaf);
+  }
+
+  /** Oberste Base-Einbettung des Hubs auf eine Ansicht umstellen (bleibt in der Note gespeichert). */
+  async zeigeAnsicht(hub: TFile, ansicht: string): Promise<void> {
+    const fm = this.app.metadataCache.getFileCache(hub)?.frontmatter ?? {};
+    const cfg = this.bereiche().find((c) => c.property === fm.typ);
+    if (!cfg) return;
+    const base = cfg.kategorieBasePath.split("/").pop()!;
+    const re = new RegExp(`!\\[\\[${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(#[^\\]|]*)?\\]\\]`);
+    let changed = false;
+    await this.app.vault.process(hub, (c) => {
+      if (!re.test(c)) return c;
+      changed = true;
+      return c.replace(re, `![[${base}#${ansicht}]]`);
+    });
+    if (!changed) new Notice(`Keine Einbettung von ${base} im Hub gefunden.`);
+    await this.open(hub);
+  }
+
   onunload(): void {
-    document.body.removeClass("schul-kompakt");
+    this.anzeige.clear();
     this.sorter.cancelAll();
   }
 
@@ -293,30 +356,50 @@ export default class SchulTagesnotesPlugin extends Plugin {
     return sortByRecent(alle, (k) => k.zuletzt ?? "");
   }
 
-  private pickFachThenThema(): void {
+  pickFachThenThema(): void {
     new FachModal(this.app, this.kategorien(), (wahl) => this.pickThema(wahl), today()).open();
   }
 
-  private pickThema({ cfg, fach }: KategorieWahl): void {
+  pickThema({ cfg, fach }: KategorieWahl, opts: { datum?: string; datumFokus?: boolean; thema?: string } = {}): void {
     const heute = today();
-    const zeitraum = zeitraumFor(heute, cfg) ?? cfg.noHalbjahrFolder;
-    const ordner = (thema: string | null) => {
-      const t = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum: heute, themen: thema ? [`[[${thema}]]`] : [] }, cfg);
-      return t ? t.folder.slice(normalizePath(`${cfg.root}/${fach.folder}`).length + 1) + "/" : "";
+    const relativ = (folder: string) => folder.slice(normalizePath(`${cfg.root}/${fach.folder}`).length + 1);
+    const ziel = (thema: string | null, datum: string) => {
+      const t = computeTarget({ [cfg.property]: `[[${fach.name}]]`, datum, thema: thema ?? undefined }, cfg);
+      if (!t) return "";
+      const names = new Set(this.app.vault.getMarkdownFiles().map((f) => f.basename));
+      return `${relativ(t.folder)}/${freeTagesnoteName(fileBaseName(cfg.fileNamePattern, datum, fach), (n) => names.has(n))}`;
     };
-    new ThemaModal(
+    const modal = new ThemaModal(
       this.app,
       fach,
       this.themenOf(cfg, fach),
-      (choice) => {
-        void this.createTagesnote(cfg, fach, choice).catch((e) => new Notice(`Fehler: ${(e as Error).message}`));
+      (choice, datum) => {
+        if (choice.kind === "open") {
+          const f = this.app.vault.getAbstractFileByPath(choice.path);
+          if (f instanceof TFile) void this.open(f);
+          return;
+        }
+        void this.createTagesnote(cfg, fach, choice, datum).catch((e) => new Notice(`Fehler: ${(e as Error).message}`));
       },
       true,
-      { zeitraum, heute, heuteVorhanden: this.tagesnotesOf(cfg, fach, heute).length > 0, ordner },
-    ).open();
+      {
+        datum: opts.datum ?? heute,
+        heute,
+        datumFokus: opts.datumFokus,
+        zeitraum: (d) => zeitraumFor(d, cfg) ?? cfg.noHalbjahrFolder,
+        vorhanden: (d) => notesAmTag(this.noteInfos(), cfg, fach, d),
+        ziel,
+        verschiebe: shiftDate,
+      },
+    );
+    modal.open();
+    if (opts.thema) {
+      modal.inputEl.value = opts.thema;
+      modal.inputEl.dispatchEvent(new Event("input"));
+    }
   }
 
-  private kategorieOfActiveFile(): KategorieWahl | null {
+  kategorieOfActiveFile(): KategorieWahl | null {
     const file = this.app.workspace.getActiveFile();
     if (!file) return null;
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
@@ -332,7 +415,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
     return null;
   }
 
-  private noteInfos(): NoteInfo[] {
+  noteInfos(): NoteInfo[] {
     return this.app.vault.getMarkdownFiles().map((f) => ({
       path: f.path,
       basename: f.basename,
@@ -364,6 +447,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
   }
 
   private async createTagesnote(cfg: PathConfig, fach: Fach, choice: ThemaChoice, datum = today()): Promise<void> {
+    if (choice.kind === "open") return;
     const thema = choice.kind === "none" ? null : choice.name;
     const existing = this.findTagesnote(cfg, fach, datum, thema);
     if (existing) {
@@ -390,7 +474,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
     await this.open(await this.app.vault.create(path, content));
   }
 
-  private async open(file: TFile): Promise<void> {
+  async open(file: TFile): Promise<void> {
     const leaf = this.app.workspace.getLeaf(false);
     // Immer im Bearbeitungsmodus öffnen, auch wenn der wiederverwendete Tab im Lesemodus war.
     await leaf.openFile(file, { active: true, state: { mode: "source" } });

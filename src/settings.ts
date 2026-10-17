@@ -1,3 +1,4 @@
+import { SCHALTER } from "./anzeige.ts";
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type SchulTagesnotesPlugin from "./main";
 import { formatFaecher, formatHalbjahre, parseFaecher, parseHalbjahre, type BereichConfig } from "./config.ts";
@@ -87,16 +88,13 @@ export class SchulSettingTab extends PluginSettingTab {
       });
     this.text(containerEl, "Inbox-Base", "Base mit der Ansicht „Verwaist“.", s.inboxBasePath, (v) => (s.inboxBasePath = v), save);
     this.text(containerEl, "Übersichts-Base", "Karten der Fach-/Projekt-Hubs für die Bereichs-Hubs (Schule.md …).", s.bereichBasePath, (v) => (s.bereichBasePath = v), save);
-    new Setting(containerEl)
-      .setName("Kompakte Hub-Ansichten")
-      .setDesc("Blendet in den eingebetteten Plugin-Bases Rahmen und Werkzeugleiste aus (nur der Ansichten-Wechsel bleibt, der Rest erscheint beim Darüberfahren).")
-      .addToggle((t) =>
-        t.setValue(s.kompakt).onChange(async (v) => {
-          s.kompakt = v;
-          document.body.toggleClass("schul-kompakt", v);
-          await save();
-        }),
-      );
+    new Setting(containerEl).setName("Anzeige").setHeading();
+    for (const sch of SCHALTER) {
+      new Setting(containerEl)
+        .setName(sch.name)
+        .setDesc(sch.desc)
+        .addToggle((t) => t.setValue(s.anzeige[sch.key]).onChange(() => void this.plugin.anzeige.toggle(sch.key)));
+    }
     this.text(containerEl, "Tages-Base", "Tagesübersicht für Daily Notes (Calendar): Tagesnotes und Journal vom selben Datum.", s.tagBasePath, (v) => (s.tagBasePath = v), save);
 
     // ---------- Aufgaben ----------

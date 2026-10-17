@@ -1,3 +1,4 @@
+import { DEFAULT_ANZEIGE, type AnzeigeSettings } from "./ansicht.ts";
 import { parseFaecher, parseHalbjahre, type BereichConfig, type Halbjahr, type PathConfig } from "./config.ts";
 import { DEFAULT_TAG_ZUORDNUNG, type TagZuordnung } from "./stichworte.ts";
 
@@ -33,8 +34,8 @@ export interface SchulSettings {
   tagBasePath: string;
   /** Übersicht (Karten) für die Bereichs-Hubs */
   bereichBasePath: string;
-  /** Kompakte Darstellung der Plugin-Bases (styles.css, body.schul-kompakt) */
-  kompakt: boolean;
+  /** Anzeige-Schalter (Kompakt-Stil, TaskNotes-Widget in Hubs, Properties, Menüleiste) */
+  anzeige: AnzeigeSettings;
   autoSort: boolean;
   autoCreateHubs: boolean;
 }
@@ -121,7 +122,7 @@ export const DEFAULT_SETTINGS: SchulSettings = {
   inboxBasePath: "Inbox.base",
   tagBasePath: "05-Journal/_Bases/Tag.base",
   bereichBasePath: "01-Schule/_Bases/Bereich.base",
-  kompakt: true,
+  anzeige: { ...DEFAULT_ANZEIGE },
   autoSort: true,
   autoCreateHubs: true,
 };
@@ -172,7 +173,9 @@ export function mergeSettings(saved: Record<string, unknown> | null): SchulSetti
   if (typeof saved.inboxBasePath === "string") s.inboxBasePath = saved.inboxBasePath;
   if (typeof saved.tagBasePath === "string") s.tagBasePath = saved.tagBasePath;
   if (typeof saved.bereichBasePath === "string") s.bereichBasePath = saved.bereichBasePath;
-  if (typeof saved.kompakt === "boolean") s.kompakt = saved.kompakt;
+  if (saved.anzeige && typeof saved.anzeige === "object") s.anzeige = { ...s.anzeige, ...(saved.anzeige as Partial<AnzeigeSettings>) };
+  // bis 0.3: Kompakt-Schalter lag auf oberster Ebene
+  if (typeof saved.kompakt === "boolean") s.anzeige.kompakt = saved.kompakt;
   if (typeof saved.autoSort === "boolean") s.autoSort = saved.autoSort;
   if (typeof saved.autoCreateHubs === "boolean") s.autoCreateHubs = saved.autoCreateHubs;
   return s;

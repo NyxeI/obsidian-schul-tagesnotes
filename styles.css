@@ -153,3 +153,172 @@ body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-line:first-of-
 body.schul-kompakt .bases-embed[src^="Bereich.base"] .bases-cards-label {
   color: var(--text-faint);
 }
+
+/* ---------- 3. Anzeige-Schalter ---------- */
+/* TaskNotes-Widget (Subtasks/Relationships) in Fach- und Projekt-Hubs ausblenden */
+body.schul-tn-aus .schul-hub .tasknotes-relationships-widget {
+  display: none;
+}
+/* Properties-Block in datierten Notes ausblenden */
+/* Obsidian steuert die Sichtbarkeit über diese Variablen (Lese- und Bearbeitungsansicht) */
+body.schul-props-aus .schul-note {
+  --metadata-display-editing: none;
+  --metadata-display-reading: none;
+}
+
+/* ---------- 4. Menüleiste in Notes ---------- */
+.schul-notebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  font-size: var(--font-ui-small);
+  flex-wrap: wrap;
+}
+.schul-notebar-links,
+.schul-notebar-rechts {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  flex-wrap: wrap;
+}
+.schul-notebar-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-2-3);
+  height: auto;
+}
+.schul-notebar-knopf.is-active {
+  color: var(--interactive-accent);
+}
+.schul-notebar-knopf.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.schul-notebar-text {
+  color: var(--text-muted);
+  padding: 0 var(--size-2-2);
+}
+.schul-badge-warn {
+  background: rgba(var(--color-orange-rgb), 0.15);
+  color: var(--color-orange);
+}
+
+/* ---------- 5. Datumsleiste im Dialog ---------- */
+.schul-datebar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.schul-datebar-fach {
+  font-weight: var(--font-semibold);
+  margin-right: auto;
+}
+.schul-datebar-input {
+  width: auto;
+}
+.schul-modal .schul-suggestion-vorhanden .schul-suggestion-icon {
+  color: var(--color-green);
+}
+
+/* ---------- 6. Steuer-Panel ---------- */
+.schul-panel {
+  padding: var(--size-4-3);
+  font-size: var(--font-ui-small);
+}
+.schul-panel-kopf {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+  margin-bottom: var(--size-4-2);
+}
+.schul-panel-kopf-icon {
+  color: var(--interactive-accent);
+}
+.schul-panel-titel {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-medium);
+}
+.schul-panel-sub {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.schul-panel-abschnitt {
+  margin: var(--size-4-4) 0 var(--size-2-2);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+.schul-panel-zahlen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-2-2);
+}
+.schul-panel-zahl {
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: var(--size-2-3);
+  text-align: center;
+}
+.schul-panel-zahl-wert {
+  font-size: var(--font-ui-large);
+  font-weight: var(--font-semibold);
+}
+.schul-panel-zahl-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.schul-panel-zeile {
+  display: flex;
+  gap: var(--size-4-2);
+  padding: var(--size-2-1) 0;
+}
+.schul-panel-label {
+  color: var(--text-muted);
+  min-width: 5.5em;
+}
+.schul-panel-zeile.schul-warn {
+  color: var(--color-orange);
+}
+.schul-panel-aktion {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-2-3);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.schul-panel-aktion:hover {
+  background: var(--background-modifier-hover);
+}
+.schul-panel-aktion.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.schul-panel-aktion-icon {
+  display: flex;
+  color: var(--text-muted);
+}
+.schul-panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+}
+.schul-chip {
+  font-size: var(--font-ui-smaller);
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-l);
+  height: auto;
+}
+.schul-panel .setting-item {
+  padding: var(--size-2-3) 0;
+  border-top: none;
+}

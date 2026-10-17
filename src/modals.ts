@@ -81,75 +81,158 @@ export class BereichModal extends FuzzySuggestModal<PathConfig> {
 export type ThemaChoice =
   | { kind: "none" }
   | { kind: "existing"; name: string }
-  | { kind: "new"; name: string };
+  | { kind: "new"; name: string }
+  | { kind: "open"; path: string };
 
-/** Zusatzangaben für den Themen-Dialog. */
-export interface ThemaKontext {
-  /** z. B. "13-1" oder "2026" */
-  zeitraum?: string;
-  /** Heute gibt es schon eine Tagesnote in diesem Fach (sie wird geöffnet, das Thema angehängt). */
-  heuteVorhanden?: boolean;
-  heute?: string;
-  /** Ordner der neuen Tagesnote je Thema (null = ohne Thema), relativ zum Fach. */
-  ordner?: (thema: string | null) => string;
+/** Vorhandene Note an einem Tag (für „schon da“). */
+export interface NoteAmTag {
+  path: string;
+  basename: string;
+  thema: string | null;
 }
 
-/** Schritt 2: Thema wählen – zuletzt benutzte zuerst, „ohne Thema“ oder neues Thema aus der Eingabe. */
+/** Zusatzangaben für den Themen-Dialog; alles hängt vom gewählten Datum ab. */
+export interface ThemaKontext {
+  /** Startdatum (YYYY-MM-DD) */
+  datum: string;
+  heute: string;
+  /** Halbjahr bzw. Jahr zum Datum, z. B. "13-1" */
+  zeitraum?: (datum: string) => string;
+  /** Notes der Kategorie an diesem Tag */
+  vorhanden?: (datum: string) => NoteAmTag[];
+  /** Ziel der neuen Note relativ zur Kategorie, z. B. "13-1/Geraden/2026-10-17 Mathe (2)" */
+  ziel?: (thema: string | null, datum: string) => string;
+  /** Datumsfeld beim Öffnen fokussieren */
+  datumFokus?: boolean;
+  /** Tag verschieben (für Alt+←/→) */
+  verschiebe?: (datum: string, tage: number) => string;
+}
+
+/**
+ * Schritt 2: Datum wählen (Standard heute), vorhandene Notes des Tages öffnen oder ein Thema wählen –
+ * zuletzt benutzte zuerst, „ohne Thema“ oder ein neues Thema aus der Eingabe.
+ */
 export class ThemaModal extends SuggestModal<ThemaChoice> {
   private info = new Map<string, ThemaInfo>();
   private themen: string[];
+  private datum: string;
+  private dateInput!: HTMLInputElement;
+  private zeitraumEl!: HTMLElement;
 
   constructor(
     app: App,
     private fach: Fach,
     themen: (string | ThemaInfo)[],
-    private onPick: (choice: ThemaChoice) => void,
+    private onPick: (choice: ThemaChoice, datum: string) => void,
     private allowNone = true,
-    private kontext: ThemaKontext = {},
+    private kontext: ThemaKontext = { datum: "", heute: "" },
   ) {
     super(app);
+    this.datum = kontext.datum;
     this.themen = themen.map((t) => (typeof t === "string" ? t : t.name));
     for (const t of themen) if (typeof t !== "string") this.info.set(t.name, t);
     this.modalEl.addClass("schul-modal");
-    const wo = [fach.name, kontext.zeitraum].filter(Boolean).join(" · ");
-    this.setPlaceholder(`Thema für ${wo} – tippen für ein neues Thema`);
+    this.setPlaceholder(`Thema für ${fach.name} – tippen für ein neues Thema`);
     this.setInstructions([
       { command: "↑↓", purpose: "wählen" },
       { command: "↵", purpose: "anlegen bzw. öffnen" },
+      { command: "Alt ←/→", purpose: "Tag zurück/vor" },
+      { command: "Ctrl D", purpose: "Datum eingeben" },
       { command: "esc", purpose: "abbrechen" },
     ]);
-    if (kontext.heuteVorhanden) {
-      const hint = this.modalEl.createDiv({ cls: "schul-modal-hint" });
-      setIcon(hint.createSpan(), "info");
-      hint.createSpan({ text: ` Heute gibt es schon Notes in ${fach.name}: gleiches Thema öffnet die vorhandene, ein neues Thema legt eine weitere an.` });
-      this.modalEl.insertBefore(hint, this.modalEl.firstChild);
-    }
+    if (this.datum) this.buildDateBar();
+  }
+
+  private buildDateBar(): void {
+    const bar = createDiv({ cls: "schul-datebar" });
+    const btn = (icon: string, label: string, fn: () => void) => {
+      const b = bar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label } });
+      setIcon(b, icon);
+      b.addEventListener("click", (e) => {
+        e.preventDefault();
+        fn();
+      });
+    };
+    bar.createSpan({ cls: "schul-datebar-fach", text: this.fach.name });
+    btn("chevron-left", "Tag zurück (Alt+←)", () => this.shift(-1));
+    this.dateInput = bar.createEl("input", { type: "date", cls: "schul-datebar-input" });
+    this.dateInput.value = this.datum;
+    this.dateInput.addEventListener("change", () => this.setDatum(this.dateInput.value));
+    this.dateInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.inputEl.focus();
+      }
+    });
+    btn("chevron-right", "Tag vor (Alt+→)", () => this.shift(1));
+    const heute = bar.createEl("button", { cls: "schul-datebar-heute", text: "Heute" });
+    heute.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.setDatum(this.kontext.heute);
+    });
+    this.zeitraumEl = bar.createSpan({ cls: "schul-badge" });
+    this.modalEl.prepend(bar);
+    this.scope.register(["Alt"], "ArrowLeft", () => (this.shift(-1), false));
+    this.scope.register(["Alt"], "ArrowRight", () => (this.shift(1), false));
+    this.scope.register(["Mod"], "d", () => (this.dateInput.focus(), false));
+    this.updateZeitraum();
+  }
+
+  onOpen(): void {
+    super.onOpen();
+    if (this.kontext.datumFokus && this.dateInput) window.setTimeout(() => this.dateInput.focus(), 0);
+  }
+
+  private shift(tage: number): void {
+    if (this.kontext.verschiebe) this.setDatum(this.kontext.verschiebe(this.datum, tage));
+  }
+
+  private setDatum(datum: string): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return;
+    this.datum = datum;
+    if (this.dateInput) this.dateInput.value = datum;
+    this.updateZeitraum();
+    // Vorschläge neu berechnen
+    this.inputEl.dispatchEvent(new Event("input"));
+  }
+
+  private updateZeitraum(): void {
+    if (!this.zeitraumEl) return;
+    const z = this.kontext.zeitraum?.(this.datum) ?? "";
+    this.zeitraumEl.setText(this.datum === this.kontext.heute ? `${z} · heute` : z);
   }
 
   getSuggestions(query: string): ThemaChoice[] {
     const q = query.trim();
     const lower = q.toLowerCase();
+    const da: ThemaChoice[] = (this.kontext.vorhanden?.(this.datum) ?? [])
+      .filter((n) => !q || n.basename.toLowerCase().includes(lower) || (n.thema ?? "").toLowerCase().includes(lower))
+      .map((n) => ({ kind: "open", path: n.path }));
     const hits: ThemaChoice[] = this.themen
       .filter((t) => t.toLowerCase().includes(lower))
       .map((name) => ({ kind: "existing", name }));
     const exact = this.themen.some((t) => t.toLowerCase() === lower);
     if (q && !exact) hits.push({ kind: "new", name: q });
     if (!q && this.allowNone) hits.unshift({ kind: "none" });
-    return hits;
+    return [...da, ...hits];
   }
 
   renderSuggestion(choice: ThemaChoice, el: HTMLElement): void {
-    const ordner = (t: string | null) => (this.kontext.ordner ? `→ ${this.kontext.ordner(t)}` : "");
-    if (choice.kind === "none") return renderRow(el, "circle-dashed", "Ohne Thema", "", ordner(null));
-    if (choice.kind === "new") return renderRow(el, "plus", `Neues Thema: ${choice.name}`, "", ordner(choice.name));
+    const ziel = (t: string | null) => (this.kontext.ziel ? `→ ${this.kontext.ziel(t, this.datum)}` : "");
+    if (choice.kind === "open") {
+      const n = this.kontext.vorhanden?.(this.datum).find((x) => x.path === choice.path);
+      el.addClass("schul-suggestion-vorhanden");
+      return renderRow(el, "file-check", n?.basename ?? choice.path, n?.thema ? `Thema: ${n.thema}` : "ohne Thema", "öffnen", "schon da");
+    }
+    if (choice.kind === "none") return renderRow(el, "circle-dashed", "Ohne Thema", "", ziel(null));
+    if (choice.kind === "new") return renderRow(el, "plus", `Neues Thema: ${choice.name}`, "", ziel(choice.name));
     const i = this.info.get(choice.name);
-    const sub = i?.anzahl ? `${i.anzahl} Note${i.anzahl === 1 ? "" : "s"}` : "";
-    const aside = i?.zuletzt ? `zuletzt ${kurzDatum(i.zuletzt, this.kontext.heute ?? "")}` : "";
-    renderRow(el, i?.zuletzt ? "history" : "file-text", choice.name, sub, aside);
+    const sub = i?.anzahl ? `${i.anzahl} Note${i.anzahl === 1 ? "" : "s"}${i.zuletzt ? ` · zuletzt ${kurzDatum(i.zuletzt, this.kontext.heute)}` : ""}` : "";
+    renderRow(el, i?.zuletzt ? "history" : "file-text", choice.name, sub, ziel(choice.name));
   }
 
   onChooseSuggestion(choice: ThemaChoice): void {
-    this.onPick(choice);
+    this.onPick(choice, this.datum);
   }
 }
 
