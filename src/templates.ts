@@ -195,6 +195,12 @@ export function renderTemplate(template: string, v: TemplateVars): string {
     : "  []";
   let out = template;
   if (v.halbjahr === null) out = out.replace(/^halbjahr:[ \t]*\{\{halbjahr\}\}[ \t]*\r?\n/m, "");
+  // Thema als YAML-Doppelquote-String (JSON ist gültiges YAML): "{{thema}}" und unquotiert als Frontmatter-Wert.
+  const thema = JSON.stringify(v.themen[0] ?? "");
+  out = out.replace(/"\{\{thema\}\}"/g, () => thema);
+  out = out.replace(/^---\r?\n[\s\S]*?\r?\n---/, (fm) =>
+    fm.replace(/^(thema:[ \t]*)\{\{thema\}\}[ \t]*$/gm, (_m, k: string) => k + thema),
+  );
   return out
     .replace(/\{\{property\}\}/g, v.property ?? "fach")
     .replace(/\{\{themen\}\}/g, themenYaml)
@@ -457,14 +463,15 @@ properties:
 filters:
   and:
     - file.ext == "md"
-    - date(datum).format("${f}") == this.file.name
 views:
   - type: table
     name: Heute
     filters:
-      or:
-        - typ == "tagesnote"
-        - typ == "journal"
+      and:
+        - date(datum).format("${f}") == this.file.name
+        - or:
+            - typ == "tagesnote"
+            - typ == "journal"
     groupBy:
       property: typ
       direction: DESC
