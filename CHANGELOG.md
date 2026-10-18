@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+
+- **Fixes:**
+  - side panel: the view chips now match the hub's base (e.g. "By year" in project hubs, plus "Begriffe"),
+  - side panel: no more duplicated sections when the panel re-renders quickly,
+  - new notes: topics with quotes or backslashes no longer break the frontmatter,
+  - "Update bases to plugin version": columns, row height and width set in the panel are kept; bases only count as outdated when filters, views or formulas really differ,
+  - `Tag.base`: the `this` filter moved into the "Heute" view, where Bases evaluates it.
+
 ## 0.5.0
 
 - **Side panel redesigned:**
