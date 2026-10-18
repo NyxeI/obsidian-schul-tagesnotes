@@ -1,4 +1,4 @@
-import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath } from "obsidian";
+import { MarkdownView, Modal, Notice, Platform, Plugin, Setting, TFile, normalizePath, parseYaml, stringifyYaml } from "obsidian";
 import { applyMigrationV2, planV2FromVault, type MigrationV2Result } from "./migration/apply2.ts";
 import { DEFAULT_V2_OPTIONS } from "./migration/plan2.ts";
 import type { Fach, PathConfig } from "./config.ts";
@@ -6,7 +6,7 @@ import { BereichModal, FachModal, ListModal, TextModal, ThemaModal, type Kategor
 import { Journal } from "./journal-apply.ts";
 import { resultLine, syncTasks } from "./tasks-apply.ts";
 import { applyBegriffe, planBegriffe } from "./begriffe-apply.ts";
-import { pluginBases } from "./bases.ts";
+import { kategorieBasePfade, pluginBases, veralteteBases } from "./bases.ts";
 import { planBereichHub, type BereichHubPlan } from "./bereichhub.ts";
 import { runHubLinks } from "./hublinks-apply.ts";
 import { runStichworte } from "./stichworte-apply.ts";
@@ -235,7 +235,7 @@ export default class SchulTagesnotesPlugin extends Plugin {
             : new ConfirmModal(
                 this.app,
                 "Bases neu schreiben?",
-                `${stale.size} Bases weichen ab und werden neu geschrieben: ${[...stale.keys()].join(", ")}. Eigene Änderungen an diesen Dateien (Spalten, Sortierung, zusätzliche Ansichten) gehen dabei verloren – Git-Commit oder Backup vorher!`,
+                `${stale.size} Bases weichen ab und werden neu geschrieben: ${[...stale.keys()].join(", ")}. Spalten und Zeilenhöhe aus dem Panel bleiben erhalten, andere eigene Änderungen (Sortierung, zusätzliche Ansichten) gehen dabei verloren – Git-Commit oder Backup vorher!`,
                 () => void this.writeBases(stale),
               ).open(),
         ),
@@ -650,14 +650,17 @@ export default class SchulTagesnotesPlugin extends Plugin {
     return (this.app as any).internalPlugins?.getPluginById?.("daily-notes")?.instance?.options ?? {};
   }
 
-  /** Plugin-Bases, die vom Plugin-Stand abweichen (Pfad → neuer Inhalt). */
+  /** Plugin-Bases, die inhaltlich vom Plugin-Stand abweichen (Pfad → neuer Inhalt, Panel-Einstellungen bleiben). */
   private async staleBases(): Promise<Map<string, string>> {
-    const out = new Map<string, string>();
-    for (const [path, content] of pluginBases(this.settings, this.dailyOptions().format || "YYYY-MM-DD")) {
+    const soll = pluginBases(this.settings, this.dailyOptions().format || "YYYY-MM-DD");
+    const ist = new Map<string, string | null>();
+    for (const path of soll.keys()) {
       const f = this.app.vault.getAbstractFileByPath(normalizePath(path));
-      if (!(f instanceof TFile) || (await this.app.vault.read(f)) !== content) out.set(normalizePath(path), content);
+      ist.set(path, f instanceof TFile ? await this.app.vault.read(f) : null);
     }
-    return out;
+    const yaml = { parse: parseYaml, stringify: stringifyYaml };
+    const stale = veralteteBases(soll, ist, kategorieBasePfade(this.settings), this.settings.anzeige, yaml);
+    return new Map([...stale].map(([path, content]) => [normalizePath(path), content]));
   }
 
   private async writeBases(stale: Map<string, string>): Promise<void> {
