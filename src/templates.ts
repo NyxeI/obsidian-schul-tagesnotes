@@ -189,6 +189,12 @@ export function renderTemplate(template: string, v: TemplateVars): string {
     : "  []";
   let out = template;
   if (v.halbjahr === null) out = out.replace(/^halbjahr:[ \t]*\{\{halbjahr\}\}[ \t]*\r?\n/m, "");
+  // Thema als YAML-Doppelquote-String (JSON ist gültiges YAML): "{{thema}}" und unquotiert als Frontmatter-Wert.
+  const thema = JSON.stringify(v.themen[0] ?? "");
+  out = out.replace(/"\{\{thema\}\}"/g, () => thema);
+  out = out.replace(/^---\r?\n[\s\S]*?\r?\n---/, (fm) =>
+    fm.replace(/^(thema:[ \t]*)\{\{thema\}\}[ \t]*$/gm, (_m, k: string) => k + thema),
+  );
   return out
     .replace(/\{\{property\}\}/g, v.property ?? "fach")
     .replace(/\{\{themen\}\}/g, themenYaml)
