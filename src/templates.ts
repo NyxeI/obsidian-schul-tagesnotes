@@ -457,14 +457,15 @@ properties:
 filters:
   and:
     - file.ext == "md"
-    - date(datum).format("${f}") == this.file.name
 views:
   - type: table
     name: Heute
     filters:
-      or:
-        - typ == "tagesnote"
-        - typ == "journal"
+      and:
+        - date(datum).format("${f}") == this.file.name
+        - or:
+            - typ == "tagesnote"
+            - typ == "journal"
     groupBy:
       property: typ
       direction: DESC
