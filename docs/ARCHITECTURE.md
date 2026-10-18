@@ -22,7 +22,12 @@ SchulSettings
 ├── journal, tasks                journal categories, TaskNotes folder and sources
 ├── tagZuordnung, begriffeAusschluss
 ├── inboxBasePath, tagBasePath, bereichBasePath
-└── kompakt, autoSort, autoCreateHubs
+├── autoSort                      automatic filing on/off (autoCreateHubs: unused since 0.3)
+└── anzeige: AnzeigeSettings      display (see ansicht.ts)
+    ├── kompakt, tasknotesInHubs, propertiesInNotes, menueleiste, volleBreite, fachBanner   toggles
+    ├── zeilenhoehe ("" | medium | tall | extra), gruppenGroesse (1.0–1.6)
+    ├── gruppenFarbe ("" = accent), themaFarben { "<Kategorie>::<Thema>": "#rrggbb" }
+    └── leisteKnoepfe { <button id>: false }   hidden toolbar buttons
 ```
 
 `pathConfig(settings, bereich)` merges an area with the shared terms into a `PathConfig`, which is what every path computation uses. `bereichOf(settings, frontmatter)` finds the area of a note from its category property. `mergeSettings` fills new fields from the defaults when older saved settings are loaded.
@@ -42,6 +47,12 @@ SchulSettings
 | `bases.ts` | pure | `pluginBases()`: single source for every base file the plugin owns |
 | `bereichhub.ts` | pure | Area hub: embed cards, repair `Name]]` links |
 | `hublinks.ts` / `hublinks-apply.ts` | pure / Obsidian | Fold link lists in category hubs into a callout |
+| `ansicht.ts` | pure | Display settings model and defaults, body classes, note kind (hub/note), neighbours within a topic, hub stats, notes of a day, colour keys |
+| `anzeige.ts` | Obsidian | Applies the display settings (body/leaf classes), builds the toolbar, date confirm/change, rewrites table layout in the bases (`bearbeiteBase`) |
+| `panel.ts` | Obsidian | Side panel (`ItemView`): button tiles, collapsible sections for view, topic colours, columns, display, toolbar buttons, today |
+| `gruppen.ts` | Obsidian | Colours topic headings in hub bases (MutationObserver), right-click colour menu, colour dialog |
+| `spalten.ts` | pure | Column catalogue, column widths that fit the note width, setting columns/row height on a parsed base |
+| `banner.ts` | pure | Banner inheritance (own → former note → subject hub) and the plan for „Banner nachtragen“ |
 | `sort.ts` | Obsidian | `Sorter`: debounced filing on metadata change, tag and term sync, topic hubs, attachments, empty folders |
 | `modals.ts` | Obsidian | Subject and topic dialogs, list and text prompts |
 | `migration/dates.ts` | pure | Recognising date markers, splitting notes into sections |
@@ -90,8 +101,18 @@ Display names of note properties need the `note.` prefix in the `properties:` bl
 
 ## Styles
 
-`styles.css` covers two things:
-- the dialog rows (`.schul-modal`, `.schul-suggestion`, `.schul-badge`),
-- the compact look of embedded bases.
+`styles.css` is organised in numbered sections:
+1. dialog rows (`.schul-modal`, `.schul-suggestion`, `.schul-badge`),
+2. the compact look of embedded bases (`body.schul-kompakt`),
+3. display toggles (`body.schul-tn-aus`, `body.schul-props-aus`),
+4. the toolbar (`.schul-notebar`; the view content becomes a flex column so the bar stays on top),
+5. the date bar of the dialog,
+6. the side panel (`.schul-panel`, tiles, chips, segments, colour rows),
+7. topic headings (`.schul-gruppe`, `--schul-gruppe`, `--schul-gruppen-groesse`),
+8. tables without sideways scrolling (wrapping cells, `body.schul-breit`).
 
-The compact rules apply only when `body.schul-kompakt` is set (a setting) and only to the plugin's own bases. They are matched by the `src` attribute of the embed (`.bases-embed[src^="Fach.base"]`), so notes need no extra classes.
+Rules for bases match only the plugin's own bases, via the `src` attribute of the embed (`.bases-embed[src^="Fach.base"]`), so notes need no extra classes. Leaf-level rules use the classes `schul-hub` / `schul-note` that `anzeige.ts` sets on the view container.
+
+### Table layout
+
+Bases positions table rows absolutely with a fixed height (`--bases-table-row-height`), so rows cannot grow with their content. Wrapping therefore needs a larger `rowHeight` in the view. Column widths come from the view's `columnSize` (keys `file.name` / `note.<property>`). `spalten.ts` computes both, `anzeige.ts` writes them into the bases.

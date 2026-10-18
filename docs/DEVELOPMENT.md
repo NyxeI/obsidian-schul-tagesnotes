@@ -43,6 +43,7 @@ Use a **copy** of a real vault for testing bulk commands. Never run them on your
 
 The README screenshots were taken from this vault with Electron's `capturePage()` via the Obsidian CLI (`eval`). That works without bringing the window to the front. Things to know:
 - Call `webContents.setBackgroundThrottling(false)` and `invalidate()` first. Otherwise an occluded window returns a stale frame.
+- If frames still stay stale, resize the window by one pixel and back (`hyprctl dispatch 'hl.dsp.window.resize({x = 1441, y = 900, window = "address:…"})'`) before capturing. Compare checksums of the images to catch stale shots.
 - Disable CSS animations, or modals stay invisible.
 - Keep each `eval` under about 2 seconds; wait in the shell instead.
 

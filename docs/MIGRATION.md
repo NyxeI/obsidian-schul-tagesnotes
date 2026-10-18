@@ -38,7 +38,9 @@ Dry-run scripts for steps 6 and 7:
   - It is split at date markers: a line that holds only a date (`09-10-2026`, `## 07.10.25`, …) starts the section of that day.
   - The rest is split at `#` and `##` headings. `###` and deeper stay inside a part. Parts shorter than 300 characters are merged into the previous part.
   - Parts with a date marker get that date. All other parts get the file date, i.e. the earlier of created and modified, and are flagged `datum_geschaetzt: true` (view "Datum prüfen").
+  - A short preamble before the first date marker (e.g. only `# Title`) does not become a note of its own; it joins the first dated part.
   - Each part lands in `<Category>/<Term>/<Topic>/<date> <Category>[ (n)].md` with `thema` (the old note name), `abschnitt`, `teil`, `kapitel` (old folder) and `quelle` (old path). Aliases and other properties of the old note go to part 1.
+  - **Banner:** every part gets the old note's `banner`; parts of notes without a banner get the subject hub's banner (toggle „Fach-Banner für neue Notes“).
 - **Earlier grades are left alone** (areas with terms only). A note stays where it is when it lies in a folder like `11/` or `11. Klasse`, or when neither its file date nor any of its date markers falls into a configured term. Attachments in its folder stay as well.
 - **Links:** before anything moves, every link to an old note is redirected to the part that contains the target. This covers wikilinks, embeds, `#heading` and `#^block` anchors, Markdown links with or without `.md`, and canvas nodes. The visible text stays the same: `[[Woyzeck#Doktor]]` becomes `[[2026-06-22 Deutsch (3)#Doktor|Woyzeck > Doktor]]`. Links in tables (`\|`) keep their escaping.
 - **Attachments** (images, PDFs, canvas, Ink) move to `<Category>/attachments/<old folder>/`; Obsidian updates the links, and Ink paths are rewritten.
@@ -52,6 +54,8 @@ Automatic filing is paused while the migration runs. At the end the plugin compa
 - Compare the number of unresolved links. Only links that were already broken may remain.
 - Check `git diff --stat` and spot-check a few subjects.
 - Check the view "Datum prüfen" in each subject hub and correct estimated dates where you know better; the sorter then moves the note.
+- Run „Base-Dateien auf Plugin-Stand bringen“ after updating the plugin, so the hub tables get the current views, column widths and row height.
+- For vaults migrated with 0.3/0.4, run „Banner nachtragen …“ once.
 
 ## Undo
 

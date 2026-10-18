@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0
+
+- **Side panel redesigned:**
+  - button tiles instead of text rows (with tooltips and a counter for estimated dates),
+  - collapsible sections (state remembered),
+  - new customisation: topic colours and default colour, visible columns per view, row height (S–XL), size of the topic headings, which toolbar buttons appear.
+- **Hub tables without sideways scrolling:**
+  - views get `columnSize` widths that fit the note width and `rowHeight: medium`,
+  - cells wrap,
+  - optional full-width tables.
+- **Topic headings:**
+  - colour bar, tinted background and larger bold text; group rows get a stripe in the same colour,
+  - a colour per topic via the panel or a right-click on the heading.
+- **Banners:**
+  - the migration gives every part its former note's banner (or the subject hub's),
+  - new notes get the hub's banner,
+  - new command „Banner nachtragen …“.
+- **New toggles:** full-width tables, subject banner for new notes.
+- **Fixes:** the toolbar no longer scrolls out of view; date columns are wide enough; larger topic names are no longer clipped.
+
 ## 0.4.0
 
 - **Control panel** in the sidebar (like Advanced Tables). It follows the active note:

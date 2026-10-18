@@ -25,9 +25,13 @@ An [Obsidian](https://obsidian.md) plugin for **dated notes per subject**. Inste
   - link glossary terms and people,
   - replace hand-written link lists with Bases views.
 - **Control panel and toolbar.**
-  - A side panel (like Advanced Tables) follows the active note: stats, navigation within a topic, confirming or changing estimated dates, display toggles.
-  - A slim toolbar sits on top of hubs and dated notes.
-- **Display toggles.** Compact Bases views, the TaskNotes widget in hubs, the properties block in dated notes and the toolbar can each be switched on and off (panel, settings or command).
+  - A side panel (like Advanced Tables) follows the active note. It has button tiles for the frequent actions and collapsible sections to customise topic colours, table columns, row height, heading size and toolbar buttons.
+  - A slim toolbar sits on top of hubs and dated notes; you choose which buttons it shows.
+- **Readable hub tables.**
+  - Column widths fit the note width, so nothing scrolls sideways, and long cells wrap.
+  - Topic headings are coloured and larger. Each topic can get its own colour (panel or right-click on the heading).
+- **Banners.** Dated notes inherit the banner of their former topic note, or of their subject hub.
+- **Display toggles.** Compact Bases views, TaskNotes widget in hubs, properties in dated notes, toolbar, full-width tables and subject banners for new notes – in the panel, the settings or as commands.
 
 ## Tour
 
@@ -50,6 +54,8 @@ A click opens the subject hub.
 
 The subject hub is the only hub of a subject. On top, the view **Nach Thema** groups all notes by topic, oldest first. The parts of a former topic note (*Abschnitt*) stay in order.
 
+Each topic heading has a colour bar and larger text. Pick a colour per topic in the panel (*Themenfarben*) or by right-clicking the heading. The table fits the note width: long text and list columns such as *Unterthemen* wrap instead of scrolling sideways.
+
 The toolbar above the note offers:
 - **Neue Note in Math** (new note in this subject),
 - a note for another date,
@@ -65,10 +71,13 @@ Switch views with the dropdown: by date, term, topic, chapter, subtopics, exam-r
 **Datum prüfen** lists the notes whose date was estimated from the file during the migration.
 
 The **control panel** (ribbon icon *sliders* or command „Schul-Panel öffnen“) follows the active note. For a hub it shows:
+- button tiles: new note, note for another date, check dates (with a counter), topic view,
 - the number of notes, topics and estimated dates,
-- buttons for new notes,
-- chips that switch the hub's view,
-- the display toggles.
+- **Ansicht im Hub:** chips that switch the hub's view,
+- **Themenfarben:** a colour per topic and a default colour,
+- **Spalten:** which columns each view shows (the widths adapt),
+- **Darstellung:** icon toggles, row height (S–XL), size of the topic headings,
+- **Knöpfe der Menüleiste:** which buttons the toolbar shows.
 
 ### 4. A dated note
 
@@ -81,11 +90,17 @@ The toolbar shows:
 - the position within the topic (*Integrals · 2/3*) with previous/next,
 - the estimated date (≈) with buttons to **confirm** or **change** it. After a change the note moves to the matching term folder.
 
+For a dated note, the panel offers the same actions as button tiles (hub, previous, next, confirm, change date, another note for this topic) plus topic, section and date at a glance.
+
 ### 5. Less clutter: hide the properties
 
 ![Same note with the properties block hidden](docs/images/05-properties-hidden.png)
 
-With **Properties in datierten Notes** switched off, dated notes show only their content. The other toggles hide the TaskNotes widget in hubs (off by default) and the Bases toolbar (compact mode).
+With **Properties in datierten Notes** switched off, dated notes show only their content. The other toggles:
+- hide the TaskNotes widget in hubs (off by default),
+- switch the compact mode of the Bases toolbar,
+- let hub tables use the full window width,
+- give new notes their subject's banner.
 
 ### 6. Writing in class: new dated note
 

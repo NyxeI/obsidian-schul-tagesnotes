@@ -116,16 +116,21 @@ Switch views with the dropdown at the top left of an embedded base. *Sort*, *Gro
   - for migrated notes with an estimated date, a „≈ date“ badge with **confirm** (removes `datum_geschaetzt`) and **change date** (the note then moves to the matching term).
 
 **Control panel** (ribbon icon *sliders*, command „Schul-Panel öffnen“) opens in the right sidebar. It always follows the last active note, even while the panel itself has the focus.
-- **Hub:**
-  - number of notes, topics and estimated dates, and the date range,
-  - new note,
-  - chips that switch the hub's top view (the choice is saved in the hub).
-- **Dated note:**
-  - subject, topic, section, part and date with confirm/change,
-  - previous/next note in the topic,
-  - hub,
-  - another note for the same topic.
-- **Always:** the display toggles, „Neue Tagesnote …“ and the notes of today.
+
+On top it has **button tiles** with tooltips:
+- **Hub:** new note, note for another date, check dates (counter of estimated dates), topic view. Below them the number of notes, topics and estimated dates.
+- **Dated note:** hub, previous, next, confirm date (only for estimated dates), change date, another note for the same topic. Below them topic, section and date.
+
+Below the tiles come **collapsible sections**; their open/closed state is remembered.
+
+| Section | Shown for | What you can do |
+|---|---|---|
+| Ansicht im Hub | hub | Switch the hub's top view (saved in the hub) |
+| Themenfarben | hub | A colour per topic of this hub (colour field, reset) and the default colour |
+| Spalten | hub | Choose a view and switch columns on/off: Thema, Abschnitt, Unterthemen, Tags, Kapitel, Datum, Halbjahr. The widths are recalculated. Applies to every hub that uses the same base (e.g. all subjects with `Fach.base`). |
+| Darstellung | always | Icon toggles (see below), row height S/M/L/XL, size of the topic headings |
+| Knöpfe der Menüleiste | always | Choose which buttons the toolbar shows |
+| Heute | always | Today's dated notes |
 
 **Display toggles** (panel, settings → *Anzeige*, or a command each for hotkeys):
 
@@ -135,11 +140,29 @@ Switch views with the dropdown at the top left of an embedded base. *Sort*, *Gro
 | TaskNotes-Widget in Hubs | off | Shows TaskNotes' subtasks/relationships widget in subject and project hubs (other notes are not affected) |
 | Properties in datierten Notes | on | Shows the properties block in dated notes |
 | Menüleiste in Notes | on | Shows the toolbar described above |
+| Tabellen in voller Breite | off | Hub tables use the full window width instead of the readable line width (widths are recalculated for 1100 px) |
+| Fach-Banner für neue Notes | on | New notes without a banner get the banner of their subject hub |
+
+## Hub tables and topic colours
+
+- **No sideways scrolling.** The plugin writes column widths (`columnSize`) into the views of `Fach.base`/`Projekt.base`, so a table fits the note width (690 px; 1100 px with full width). Long text and list columns wrap inside the cell.
+- **Row height.** Bases uses fixed row heights. With wrapping text, M (default) or L gives each row room for two to three lines. Change it in the panel (*Darstellung → Zeilen*); this rewrites `rowHeight` in the plugin's category bases.
+- **Topic headings** in grouped views (e.g. *Nach Thema*) get a colour bar, a tinted background and larger bold text; the rows of the group get a thin stripe in the same colour.
+  - **Default colour:** the theme's accent colour, or the one set under *Themenfarben → Standardfarbe*.
+  - **Own colour per topic:** panel → *Themenfarben*, or right-click a topic heading → „Farbe für … “. Colours are stored per subject and topic (`Mathe::Vektoren`).
+  - **Size:** slider *Themenköpfe* in the panel (1.0–1.6 × the UI font size).
+
+## Banners
+
+Dated notes show a banner (e.g. with the Pexels Banner plugin) through the property `banner`.
+- The migration gives every part of a former topic note that note's banner. Parts of notes without a banner get the subject hub's banner.
+- New notes get the hub's banner (toggle „Fach-Banner für neue Notes“).
+- „Banner nachtragen …“ fills in missing banners afterwards: first from a sibling part with the same `quelle`, otherwise from the hub. It shows the numbers before it changes anything and sets only the property `banner`.
 
 **Compact look:** the toggle „Kompakte Base-Ansichten“ (on by default) styles the plugin's embedded bases:
 - only the view switcher and the result count stay visible; the other toolbar buttons appear on hover,
 - tables have no borders and use compact rows,
-- group headings are smaller.
+- group headings stay readable (topic headings are coloured, see below).
 
 Customise it with your own CSS snippet: every rule is scoped to `body.schul-kompakt` and the embed's `src` attribute (see `styles.css`).
 
@@ -151,6 +174,7 @@ Customise it with your own CSS snippet: every rule is scoped to `body.schul-komp
 | Tagesnote heute im Fach der aktuellen Note | Today's note in current subject | As above, subject taken from the open note |
 | Tagesnote für anderes Datum … | Note for another date | As above with the date field focused |
 | Schul-Panel öffnen | Open control panel | Side panel for the active note |
+| Banner nachtragen … | Fill in banners | Missing banners from the former topic note or the subject hub |
 | Anzeige umschalten: … | Toggle display: … | One command per display toggle |
 | Aktuelle Note einsortieren | File current note | Fix folder, tags and term of the open note |
 | Alle Tagesnotes einsortieren | File all daily notes | Same for the whole vault, with summary |
