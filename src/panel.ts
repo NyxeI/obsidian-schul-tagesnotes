@@ -21,6 +21,8 @@ export class SchulPanel extends ItemView {
   private plugin: SchulTagesnotesPlugin;
   private file: TFile | null = null;
   private offen: Record<string, boolean>;
+  /** Zähler gegen parallele render()-Läufe: nur der letzte Lauf darf weiter anhängen. */
+  private renderGen = 0;
   private spaltenAnsicht = "Nach Thema";
 
   constructor(leaf: WorkspaceLeaf, plugin: SchulTagesnotesPlugin) {
@@ -64,6 +66,7 @@ export class SchulPanel extends ItemView {
   }
 
   async render(): Promise<void> {
+    const gen = ++this.renderGen;
     const el = this.contentEl;
     const scroll = el.scrollTop;
     el.empty();
@@ -126,6 +129,7 @@ export class SchulPanel extends ItemView {
       });
       this.abschnitt(el, "farben", "Themenfarben", (box) => this.farben(box, cfg, fach));
       await this.abschnittAsync(el, "spalten", "Spalten", (box) => this.spalten(box, cfg));
+      if (gen !== this.renderGen) return; // ein neuerer Lauf hat das Panel inzwischen neu aufgebaut
     }
 
     // ---------- Darstellung ----------
