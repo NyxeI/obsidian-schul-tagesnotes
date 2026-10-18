@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { planBereichHub, repairBrokenLinks } from "../src/bereichhub.ts";
-import { bereichBase, slimBase } from "../src/templates.ts";
+import { addBegriffeToKategorieBase, bereichBase, kategorieAnsichten, kategorieBase, slimBase } from "../src/templates.ts";
 import { pluginBases } from "../src/bases.ts";
 import { DEFAULT_SETTINGS, mergeSettings } from "../src/defaults.ts";
 
@@ -157,4 +157,11 @@ test("Farben: Schlüssel, Standard und eigene Themenfarbe, Normalisierung", asyn
   assert.equal(normalisiereFarbe("rot"), null);
   assert.equal(knopfSichtbar(a, "neu"), true);
   assert.equal(knopfSichtbar({ ...a, leisteKnoepfe: { neu: false } }, "neu"), false);
+});
+
+test("Panel-Chips: jede Ansicht existiert in der Kategorie-Base", () => {
+  for (const z of ["halbjahr", "jahr"] as const) {
+    const base = addBegriffeToKategorieBase(kategorieBase("fach", z));
+    for (const v of [...kategorieAnsichten(z), "Begriffe"]) assert.ok(base.includes(`name: ${v}\n`), `${z}: ${v}`);
+  }
 });

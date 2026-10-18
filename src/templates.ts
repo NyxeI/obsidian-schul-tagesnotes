@@ -112,6 +112,11 @@ views:
         direction: ASC
 `;
 
+/** Namen der Ansichten in kategorieBase (Reihenfolge wie dort); „Begriffe“ kommt erst durch addBegriffeToKategorieBase dazu. */
+export function kategorieAnsichten(zeitraum: "halbjahr" | "jahr" = "halbjahr"): string[] {
+  return ["Nach Datum", zeitraum === "jahr" ? "Nach Jahr" : "Nach Halbjahr", "Nach Thema", "Nach Kapitel", "Unterthemen", "Abi-relevant", "Datum prüfen"];
+}
+
 /**
  * Base für Kategorie-Hubs (Fach, Projekt) – seit Migration v2 der einzige Hub: alle datierten Notes der Kategorie.
  * Bei Zeitraum "jahr" wird nach Jahr statt Halbjahr gruppiert.
@@ -137,14 +142,15 @@ ${sort}`;
   const group = (prop: string, dir = "ASC") => `    groupBy:\n      property: ${prop}\n      direction: ${dir}\n`;
   const chrono = "      - property: datum\n        direction: ASC\n      - property: file.name\n        direction: ASC\n";
   const zeitraumProp = zeitraum === "jahr" ? "formula.jahr" : "halbjahr";
+  const [aDatum, aZeitraum, aThema, aKapitel, aUnter, aAbi, aPruefen] = kategorieAnsichten(zeitraum);
   const views = [
-    view("Nach Datum", "", ["file.name", "thema", "abschnitt"]),
-    view(zeitraum === "jahr" ? "Nach Jahr" : "Nach Halbjahr", "", ["file.name", "thema", "abschnitt"]).replace("    order:", `${group(zeitraumProp, "DESC")}    order:`),
-    view("Nach Thema", "", ["file.name", "abschnitt", "unterthemen"], chrono).replace("    order:", `${group("thema")}    order:`),
-    view("Nach Kapitel", "", ["file.name", "thema", "abschnitt"], chrono).replace("    order:", `${group("kapitel")}    order:`),
-    view("Unterthemen", "", ["file.name", "thema", "unterthemen"]),
-    view("Abi-relevant", '        - file.hasTag("markierung/abi-relevant")\n', ["file.name", "thema", "abschnitt"]),
-    view("Datum prüfen", "        - datum_geschaetzt == true\n", ["file.name", "datum", "thema", "abschnitt"], chrono),
+    view(aDatum, "", ["file.name", "thema", "abschnitt"]),
+    view(aZeitraum, "", ["file.name", "thema", "abschnitt"]).replace("    order:", `${group(zeitraumProp, "DESC")}    order:`),
+    view(aThema, "", ["file.name", "abschnitt", "unterthemen"], chrono).replace("    order:", `${group("thema")}    order:`),
+    view(aKapitel, "", ["file.name", "thema", "abschnitt"], chrono).replace("    order:", `${group("kapitel")}    order:`),
+    view(aUnter, "", ["file.name", "thema", "unterthemen"]),
+    view(aAbi, '        - file.hasTag("markierung/abi-relevant")\n', ["file.name", "thema", "abschnitt"]),
+    view(aPruefen, "        - datum_geschaetzt == true\n", ["file.name", "datum", "thema", "abschnitt"], chrono),
   ];
   return `# Einziger Hub der Kategorie (Fach, Projekt): alle datierten Notes über die Property "${property}".
 # Ansicht über das Dropdown wechseln. "Datum prüfen" zeigt Notes, deren Datum aus dem Dateidatum geschätzt wurde.

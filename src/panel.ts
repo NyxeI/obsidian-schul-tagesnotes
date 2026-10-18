@@ -7,6 +7,7 @@ import { setzeThemaFarbe } from "./gruppen.ts";
 import type SchulTagesnotesPlugin from "./main";
 import { findFach, linkTarget, normalizeDate, themaOf, today } from "./paths.ts";
 import { SPALTEN, type BaseDatei } from "./spalten.ts";
+import { kategorieAnsichten } from "./templates.ts";
 import { collectThemenInfo } from "./themen.ts";
 
 export const PANEL_VIEW = "schul-tagesnotes-panel";
@@ -119,7 +120,7 @@ export class SchulPanel extends ItemView {
     if (art === "hub" && cfg && fach && file) {
       this.abschnitt(el, "ansicht", "Ansicht im Hub", (box) => {
         const chips = box.createDiv({ cls: "schul-chips" });
-        for (const v of ["Nach Datum", "Nach Thema", "Nach Halbjahr", "Nach Kapitel", "Unterthemen", "Abi-relevant", "Datum prüfen"]) {
+        for (const v of [...kategorieAnsichten(cfg.zeitraum), "Begriffe"]) {
           chips.createEl("button", { cls: "schul-chip", text: v }).addEventListener("click", () => void p.zeigeAnsicht(file, v));
         }
       });
